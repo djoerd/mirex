@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<project name="MIREX" default="jar" basedir=".">
+
+  <description>MIREX: MapReduce Information Retrieval EXperiments</description>
+
+  <!-- Change the "hadoop" property below to match your Hadoop distribution -->
+  <property name="hadoop" value="/opt/hadoop-0.19.2/hadoop-0.19.2-core.jar"/>
+  <property name="version" value="0.1"/>
+  <property name="dir.src" value="src"/>
+  <property name="dir.dist" value="dist"/>
+  <property name="dir.lib" value="lib"/>
+  <property name="jarfile" value="mirex-${version}.jar"/>
+
+  <!-- classpath -->
+  <path id="classpath.compile">
+    <pathelement location="${dir.lib}/commons-logging-1.1.1.jar"/> 
+    <pathelement location="${hadoop}"/>
+  </path>
+
+  <!--  sources targets -->
+  <target name="build" description="compilation of source files">
+    <mkdir dir="${dir.dist}"/>
+    <javac srcdir="${dir.src}" destdir="${dir.dist}" listfiles="on" source="1.6" target="1.6">
+      <classpath refid="classpath.compile"/>
+    </javac>
+  </target>
+
+  <!--  creates jar library -->
+  <target name="jar" depends="build" description="creates jar library">
+    <jar destfile="${jarfile}" basedir="${dir.dist}"/>
+  </target>
+
+  <!--  delete distribution folders -->
+  <target name="clean" description="cleans distribution">
+    <delete file="${jarfile}"/>
+    <delete dir="${dir.dist}"/>
+  </target>
+
+</project>
