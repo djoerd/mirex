@@ -5,7 +5,7 @@
 
   <!-- Change the "hadoop" property below to match your Hadoop distribution -->
   <property name="hadoop" value="/opt/hadoop-0.19.2/hadoop-0.19.2-core.jar"/>
-  <property name="version" value="0.1"/>
+  <property name="version" value="0.2"/>
   <property name="dir.src" value="src"/>
   <property name="dir.dist" value="dist"/>
   <property name="dir.lib" value="lib"/>

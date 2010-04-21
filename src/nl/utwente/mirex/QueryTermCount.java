@@ -46,7 +46,11 @@ import java.util.HashMap;
 import java.util.Scanner;
 import java.lang.Math;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
+import org.apache.hadoop.fs.FileSystem; 
+import org.apache.hadoop.fs.FSDataOutputStream; 
+import org.apache.hadoop.fs.FSDataInputStream; 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.LongWritable;
@@ -70,11 +74,11 @@ public class QueryTermCount {
    private static final String NumberOfDocs = SysName + "-NDOCS";
    private static final String DF = SysName + "-DF-";
    private static final String CF = SysName + "-CF-";
-   private static final String tempFile = SysName + "-tmp";
+   private static final String tempName = SysName + "-tmp";
+   private static final String TOKENIZER = "[^0-9A-Za-z]+";
 
    public static class Map extends MapReduceBase implements Mapper<Text, Text, Text, LongWritable> {
 
-     private static final String TOKENIZER = "[^0-9A-Za-z]+";
      private static final LongWritable one = new LongWritable(1);  
 
      private java.util.Map<String, String[]> trecQueries = new HashMap<String, String[]>();
@@ -87,6 +91,7 @@ public class QueryTermCount {
          parseQueryFile(queryFiles[0]);
        } catch (IOException ioe) {
          System.err.println(StringUtils.stringifyException(ioe));
+         System.exit(1);
        }
      }
 
@@ -106,6 +111,7 @@ public class QueryTermCount {
          }
        } catch (IOException ioe) {
          System.err.println(StringUtils.stringifyException(ioe));
+         System.exit(1);
        }
      }
 
@@ -149,12 +155,11 @@ reporter) throws IOException {
      }
    }
 
-
-   public static void main(String[] args) throws Exception {
+   public static JobConf configureJob (String jobName, Path inputFile, Path tempOut, Path topicFile) {
      // Set job configuration
      JobConf conf = new JobConf(TrecRun.class);
-     conf.setJobName("QueryTermCount");
-		
+     conf.setJobName(jobName);
+
      // Set intermediate output (override defaults)
      conf.setMapOutputKeyClass(Text.class);
      conf.setMapOutputValueClass(LongWritable.class);
@@ -173,30 +178,87 @@ reporter) throws IOException {
      conf.setOutputFormat(TextOutputFormat.class);
      conf.setBoolean("mapred.output.compress", false);
      conf.setNumReduceTasks(1);
-		
+
      // Set input-output paths
-     FileInputFormat.setInputPaths(conf, new Path(args[0]));
-     FileOutputFormat.setOutputPath(conf, new Path(tempFile));
-		
+     FileInputFormat.setInputPaths(conf, inputFile);
+     FileOutputFormat.setOutputPath(conf, tempOut);
+
      // Set job specific distributed cache file (query file)
-     DistributedCache.addCacheFile(new Path(args[1]).toUri(), conf);
-	
+     DistributedCache.addCacheFile(topicFile.toUri(), conf);
+
+     return conf ;
+   } 
+
+   public static void main(String[] args) throws Exception {
+     Path tempOut = new Path(tempName);
+     Path tempIn = new Path(tempName + "/part-00000");
+     Path inputFile = new Path(args[0]);
+     Path topicFile = new Path(args[1]);
+     Path topicNewFile = new Path(args[2]);
+     java.util.Map<String, Long> queryCounts = new HashMap<String, Long>();
+		
+     // Stop if out file exists
+     FileSystem hdfs = FileSystem.get(new Configuration());
+     if (hdfs.exists(topicNewFile)) {
+       System.err.println("Output file " + topicNewFile + " already exists.");
+       System.exit(1); 
+     }
+     hdfs.delete(tempOut, true);
+
      // Run the job
+     JobConf conf = configureJob("QueryTermCount", inputFile, tempOut, topicFile);
      JobClient.runJob(conf);
  
-       // for each query, score the document
- /*      if (doclength > 0) {
-         Iterator iterator = trecQueries.keySet().iterator();
-         while (iterator.hasNext()) {
-           String qid = (String) iterator.next();
-           String [] qterms = (String []) trecQueries.get(qid);
-           Double score = scoreDocumentLM(qterms, docTF, doclength);
-           if (score != 0.0d) 
-             output.collect(new Text(qid), new Text(key.toString() + "\t" + score.toString()));
-         }
+     // Get temporary file for global statistics
+     try {
+       String tempLine;
+       FSDataInputStream dis = hdfs.open(tempIn); 
+       while ((tempLine = dis.readLine()) != null) { // deprecated, but it works
+         String[] fields = tempLine.split("\t");
+         queryCounts.put(fields[0], new Long(fields[1]));
        }
-*/
+       dis.close();
+     } catch (Exception e) {
+       System.err.println(StringUtils.stringifyException(e));
+       System.exit(1);
+     }
 
+     // Write new topic file with global statistics
+     try {
+       String tempLine;
+       FSDataOutputStream dos = hdfs.create(topicNewFile);
+       dos.writeChars("#MIREX-COMMENT: query term weight, document frequency, collection frequency (for each term)\n"); 
+       dos.writeChars("#MIREX-COLLECTION:" + inputFile + "\n");
+       dos.writeChars("#" + CollectionLength + ":" + queryCounts.get(CollectionLength) + "\n");
+       dos.writeChars("#" + NumberOfDocs + ":" + queryCounts.get(NumberOfDocs) + "\n");
+
+       FSDataInputStream dis = hdfs.open(topicFile);
+       while ((tempLine = dis.readLine()) != null) {
+         String [] fields = tempLine.split(":");
+         dos.writeChars(fields[0] + ":");
+         String [] terms = fields[1].replaceAll("=", " ").split(TOKENIZER);
+         for (int i=0; i < terms.length; i++) {
+           Long df, cf;
+           if (queryCounts.containsKey(DF + terms[i]))  {
+             df = queryCounts.get(DF + terms[i]); 
+             cf = queryCounts.get(CF + terms[i]);
+           }
+           else {
+             df = 0l;
+             cf = 0l;
+           }
+           dos.writeChars(terms[i] + "=1=" + df.toString() + "=" + cf.toString());
+           if (i < terms.length - 1) dos.writeChars(" "); 
+         }
+         dos.writeChars("\n");
+      }
+      dis.close();
+      dos.close();
+    } catch (Exception e) {
+      System.err.println(StringUtils.stringifyException(e));
+      System.exit(1);
+    }
+    hdfs.close();
   }
 
 }
