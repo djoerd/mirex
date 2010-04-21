@@ -3,8 +3,9 @@ Background information
 
 MIREX stands for MapReduce Information Retrieval Experiments. MIREX 
 provides a simple and flexible solution for doing large-scale 
-information retrieval experiments.  Please cite the following paper
-if you use MIREX in your scientific work:
+information retrieval experiments. More info: http://mirex.sf.net 
+Please cite the following paper if you use MIREX in your scientific 
+work:
 
     Djoerd Hiemstra and Claudia Hauff. MIREX: MapReduce Information
 Retrieval Experiments. CTIT Technical Report, Centre for Telematics 
@@ -25,12 +26,12 @@ Usage
 
 Run anchor text extraction as follows:
 
-% hadoop jar mirex-0.1.jar nl.utwente.mirex.AnchorExtract \
+% hadoop jar mirex-0.2.jar nl.utwente.mirex.AnchorExtract \
   /user/hadoop/ClueWeb09_English/*/ /user/hadoop/ClueWeb09_Anchors
 
 Then, run a TREC evaluation by:
 
-% hadoop jar mirex-0.1.jar nl.utwente.mirex.TrecRun \
+% hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRun \
   /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/TrecOut \
   /user/hadoop/wt09-topics.txt
 

@@ -218,8 +218,8 @@ reporter) throws IOException {
          queryCounts.put(fields[0], new Long(fields[1]));
        }
        dis.close();
-     } catch (Exception e) {
-       System.err.println(StringUtils.stringifyException(e));
+     } catch (IOException ioe) {
+       System.err.println(StringUtils.stringifyException(ioe));
        System.exit(1);
      }
 
@@ -227,15 +227,15 @@ reporter) throws IOException {
      try {
        String tempLine;
        FSDataOutputStream dos = hdfs.create(topicNewFile);
-       dos.writeChars("#MIREX-COMMENT: query term weight, document frequency, collection frequency (for each term)\n"); 
-       dos.writeChars("#MIREX-COLLECTION:" + inputFile + "\n");
-       dos.writeChars("#" + CollectionLength + ":" + queryCounts.get(CollectionLength) + "\n");
-       dos.writeChars("#" + NumberOfDocs + ":" + queryCounts.get(NumberOfDocs) + "\n");
+       dos.writeBytes("#MIREX-COMMENT: query term weight, document frequency, collection frequency (for each term)\n"); 
+       dos.writeBytes("#MIREX-COLLECTION:" + inputFile + "\n");
+       dos.writeBytes("#" + CollectionLength + ":" + queryCounts.get(CollectionLength) + "\n");
+       dos.writeBytes("#" + NumberOfDocs + ":" + queryCounts.get(NumberOfDocs) + "\n");
 
        FSDataInputStream dis = hdfs.open(topicFile);
        while ((tempLine = dis.readLine()) != null) {
          String [] fields = tempLine.split(":");
-         dos.writeChars(fields[0] + ":");
+         dos.writeBytes(fields[0] + ":");
          String [] terms = fields[1].replaceAll("=", " ").split(TOKENIZER);
          for (int i=0; i < terms.length; i++) {
            Long df, cf;
@@ -247,15 +247,15 @@ reporter) throws IOException {
              df = 0l;
              cf = 0l;
            }
-           dos.writeChars(terms[i] + "=1=" + df.toString() + "=" + cf.toString());
-           if (i < terms.length - 1) dos.writeChars(" "); 
+           dos.writeBytes(terms[i] + "=1=" + df.toString() + "=" + cf.toString());
+           if (i < terms.length - 1) dos.writeBytes(" "); 
          }
-         dos.writeChars("\n");
+         dos.writeBytes("\n");
       }
       dis.close();
       dos.close();
-    } catch (Exception e) {
-      System.err.println(StringUtils.stringifyException(e));
+    } catch (IOException ioe) {
+      System.err.println(StringUtils.stringifyException(ioe));
       System.exit(1);
     }
     hdfs.close();

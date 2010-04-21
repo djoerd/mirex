@@ -77,25 +77,23 @@ public class TrecRun {
          parseQueryFile(queryFiles[0]);
        } catch (IOException ioe) {
          System.err.println(StringUtils.stringifyException(ioe));
+         System.exit(1);
        }
      }
 
-     private void parseQueryFile(Path queryFile) {
-       try {
-         BufferedReader fis = new BufferedReader(new FileReader(queryFile.toString()));
-         String query = null;
+     private void parseQueryFile(Path queryFile) throws IOException {
+       BufferedReader fis = new BufferedReader(new FileReader(queryFile.toString()));
+       String queryString = null;
 
-         while ((query = fis.readLine()) != null) {
-           query.toLowerCase();
-           String [] fields = query.split(":");
-           String [] terms = fields[1].split(TOKENIZER);
-           trecQueries.put(fields[0], terms);
-           for (int i=0; i < terms.length; i++) {
-             queryTerms.put(terms[i], 1);
-           }
+       while ((queryString = fis.readLine()) != null) {
+         if (queryString.startsWith("#MIREX")) throw new IOException("Wrong format, use original TREC topic format.");
+         queryString = queryString.toLowerCase();
+         String [] fields = queryString.split(":");
+         String [] terms = fields[1].split(TOKENIZER);
+         trecQueries.put(fields[0], terms);
+         for (int i=0; i < terms.length; i++) {
+           queryTerms.put(terms[i], 1);
          }
-       } catch (IOException ioe) {
-         System.err.println(StringUtils.stringifyException(ioe));
        }
      }
 
