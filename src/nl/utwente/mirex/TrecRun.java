@@ -33,7 +33,7 @@
  *         separated by a colon (":")
  *  Output: (argument 2) (TREC-QUERY-ID, WARC-TREC-ID, score), tab separated 
  * 
- * Djoerd Hiemstra, February 2009
+ * Djoerd Hiemstra, February 2010
  */
 
 package nl.utwente.mirex;

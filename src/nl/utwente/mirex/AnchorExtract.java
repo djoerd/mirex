@@ -33,7 +33,7 @@
  * Only for documents inside the collection.
  * Documents in the collection without inlinks are not listed.
  * 
- * Djoerd Hiemstra, February 2009
+ * Djoerd Hiemstra, February 2010
  */
 
 package nl.utwente.mirex;
@@ -71,7 +71,7 @@ public class AnchorExtract {
    public static class Map extends MapReduceBase implements Mapper<LongWritable, WritableWarcRecord, Text, Text> {
 
      private final static Pattern
-       anchorPat = Pattern.compile("(?s)<a ([^>]*)href=[\"']?([^> '\"]+)([^>]*)>", Pattern.CASE_INSENSITIVE),
+       anchorPat = Pattern.compile("(?s)<a ([^>]*)href=[\"']?([^> '\"]+)([^>]*)>(.*?)</a>", Pattern.CASE_INSENSITIVE),
        relUrlPat = Pattern.compile("^/"),
        absUrlPat = Pattern.compile("^[a-z]+://"),
        nofollowPat = Pattern.compile("rel=[\"']?nofollow", Pattern.CASE_INSENSITIVE); // ignore links with rel="nofollow"
@@ -193,7 +193,7 @@ public class AnchorExtract {
      conf.setInputFormat(WarcFileInputFormat.class);
      conf.setOutputFormat(TextOutputFormat.class);
 
-     FileInputFormat.setInputPaths(conf, new Path(args[0]));
+     FileInputFormat.setInputPaths(conf, new Path(args[0])); // '(conf, args[0])' to accept comma-separated list.
      FileOutputFormat.setOutputPath(conf, new Path(args[1]));
      FileOutputFormat.setCompressOutput(conf, true);
      FileOutputFormat.setOutputCompressorClass(conf, GzipCodec.class);
