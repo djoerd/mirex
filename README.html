@@ -1,0 +1,170 @@
+<body>
+
+<h1>MIREX 0.2</h1>
+
+"MIREX" stands for MapReduce Information Retrieval Experiments. 
+MIREX provides a simple and flexible solution for doing large-scale 
+information retrieval experiments. More info: http://mirex.sf.net 
+Please cite the following paper if you use MIREX in your scientific 
+work:
+
+<blockquote>
+
+    Djoerd Hiemstra and Claudia Hauff. 
+    MapReduce for information retrieval evaluation: Let's quickly 
+    test this on 12 TB of data. In <em> Proceedings of the CLEF 2010
+    Conference on Multilingual and Multimodal Information Access 
+    Evaluation </em>, September 2010, Padua, Italy.
+
+</blockquote>
+
+
+<h2> Install </h2>
+
+In build.xml, change the 'value' attribute of  
+  &lt;property name="hadoop" /&gt; 
+such that it contains your Hadoop distribution, then run ant. 
+This produces the file <tt>mirex-0.2.jar</tt>. 
+The code was tested on Hadoop version 0.19.2
+
+
+<h2> Usage </h2>
+
+Run anchor text extraction as follows:
+
+<pre>
+
+% hadoop jar mirex-0.2.jar nl.utwente.mirex.AnchorExtract \ 
+  ClueWeb09_English/*/ ClueWeb09_Anchors
+
+</pre>
+
+Then, run a TREC evaluation by:
+
+<pre>
+
+% hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRun \ 
+  ClueWeb09_Anchors/* TrecOut wt09-topics.txt
+
+</pre>
+
+Or, on the output of anchor text extraction, first extract global 
+statistics for your queries by:
+
+<pre>
+
+% hadoop jar mirex-0.2.jar nl.utwente.mirex.QueryTermCount \ 
+  ClueWeb09_Anchors/* wt09-topics.txt wt09-topics-stats.txt
+
+</pre>
+
+This will create a new TREC query file <tt> wt09-topics-stats.txt </tt>
+that includes global statistics for each query term. 
+(as follows: <tt> wt09-14:dinosaurs=1=29584=403875 </tt>)
+
+Then, run several baseline retrieval models using:
+
+<pre>
+
+% hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRunBaselines \ 
+  ClueWeb09_Anchors/* BaselineOut wt09-topics-stats.txt
+
+</pre>
+
+Use the perl script <a href="#trec-out.pl"> trec-out.pl</a>
+provided below to produce output for <tt> trec_eval </tt>
+(see: http://trec.nist.gov/trec_eval/)
+
+<pre>
+
+% hadoop fs -cat TrecOut/part-* | ./trec-out.pl \
+  | sort -k 1n -k 4n >mirex.run
+
+</pre>
+
+Sorting is needed because <tt> trec_eval </tt> expects the results
+to be sorted on query identifier. 
+
+The <tt> TrecRunBaselines </tt>  program will output the results for 
+several retrieval models at once. You need to "grep" the results you 
+need (for instance the results of BM25 weighting) as follows.
+
+<pre>
+
+% hadoop fs -cat BaselinesOut/part-* | grep ":BM25" \
+  | ./trec-out.pl | sort -k 1n -k 4n >bm25.run
+
+</pre>
+
+
+<h2> Copyright Notice </h2>
+
+The contents of this file are subject to the PfTijah Public License
+Version 1.1 (the "License"); you may not use this file except in
+compliance with the License. You may obtain a copy of the License at
+http://dbappl.cs.utwente.nl/Legal/PfTijah-1.1.html
+<p>
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See the
+License for the specific language governing rights and limitations
+under the License.
+<p>
+The Original Code is the Mirex system.
+<p>
+The Initial Developer of the Original Code is the "University of Twente".
+Portions created by the "University of Twente" are
+Copyright (C) 2010 "University of Twente".
+All Rights Reserved.
+<p>
+Author: Djoerd Hiemstra 
+
+
+<h2> Dependencies </h2>
+
+This product includes/uses software developed by others:
+<ul>
+  <li> Hadoop - Apache Software Foundation
+  <li> Lemur Warc File Reader - Carnegie Mellon University
+  <li> Commons Logging - Apache Software Foundation (commons-logging-1.1.1.jar)
+</ul>
+
+
+<a name="trec-out.pl"/>
+
+<h2> Script that produces output for <tt> trec_eval </tt> </h2>
+
+<pre>
+#!/usr/bin/perl -w
+#
+#   trec-out.pl
+#
+# Script that converts MIREX output to trec_eval input
+
+use strict; 
+
+my $oldqid = "";
+my $oldtag = "";
+my $rank = 0;
+while (&lt;STDIN&gt;) {
+  chop;
+  my ($key, $docid, $score) =  split;
+  $key =~ s/^wt09-//;
+  my ($qid, $tag) = split /:/, $key;
+  if (!defined($tag)) { $tag = "mirex"; }
+  if ($oldtag eq "") { $oldtag = $tag; } 
+  if ($tag ne $oldtag) { 
+    die "ERROR: Multiple run tags ($tag, $oldtag): first select using grep"; 
+  }
+  if ($qid ne $oldqid) { 
+    $rank = 1;
+    $oldqid = $qid;
+  }
+  else {
+    $rank++;
+  }
+  print "$qid\tQ0\t$docid\t$rank\t$score\t$tag\n";
+}
+
+</pre>
+
+</body>
