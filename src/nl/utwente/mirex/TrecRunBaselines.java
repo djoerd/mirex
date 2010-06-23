@@ -1,5 +1,4 @@
 /*
- *
  * Copyright Notice:
  * -----------------
  *
@@ -19,21 +18,6 @@
  * Portions created by the "University of Twente" are
  * Copyright (C) 2010 "University of Twente".
  * All Rights Reserved.
- * 
- * Author(s): Djoerd Hiemstra 
- * 
- * About:
- * ------
- * 
- * Do a simple TREC run.
- *  Input: (argument 1) Document representation (WARC-TREC-ID, text), 
- *         tab separated
- *         (argument 3) TREC ClueWeb queries with global statistic from
- *         QueryTermCount.java (TREC-QUERY-ID, Query terms+frequencies), 
- *         separated by a colon (":")
- *  Output: (argument 2) (TREC-QUERY-ID, WARC-TREC-ID, score), tab separated 
- * 
- * Djoerd Hiemstra, June 2010
  */
 
 package nl.utwente.mirex;
@@ -62,8 +46,25 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 
+/**
+ * <b>Runs MapReduce job:</b> Runs several baseline experiments. 
+ * Do several TREC baseline runs, such as linear interpolation smoothing
+ * (with parameter sweep), Dirichlet smoothing, BM25.
+ *  Input: (argument 1) Document representation (WARC-TREC-ID, text), 
+ *         tab separated
+ *         (argument 3) TREC ClueWeb queries with global statistic from
+ *         QueryTermCount.java (TREC-QUERY-ID, Query terms+frequencies), 
+ *         separated by a colon (":")
+ *  Output: (argument 2) (TREC-QUERY-ID ":" Model, WARC-TREC-ID, score), tab separated 
+ * @author Djoerd Hiemstra
+ * @since 0.2
+ * @see QueryTermCount
+ */
 public class TrecRunBaselines {
 
+   /**
+    * -- Mapper: Runs all queries and all models on one document. 
+    */
    public static class Map extends MapReduceBase implements Mapper<Text, Text, Text, Text> {
 
      private static final String TOKENIZER = "[^0-9A-Za-z]+";
@@ -131,10 +132,16 @@ public class TrecRunBaselines {
      }
 
 
-     /*************************** ALL RETRIEVAL MODELS GO BELOW ***************************/
-
-     private Double scoreDocumentLMno(String[] qterms, java.util.Map<String, Integer> docTF, Long doclength) {
-       /* Original Language Model, no smoothing, see TrecRun.java */
+    // ALL RETRIEVAL MODELS GO BELOW -- These would normally be private methods, but this way they end up in javadoc automatically
+    
+    /**
+     * Computes score using a language model with NO smoothing and a document length prior (Original model, see TrecRun.java)
+     * @param qterms array of strings
+     * @param docTF document term frequencies
+     * @param doclength document length
+     * @see TrecRun
+     */
+     public Double scoreDocumentLMno(String[] qterms, java.util.Map<String, Integer> docTF, Long doclength) {
        Double score = 1.0d;
        for (int i=0; i < qterms.length; i++) {
          TermInfo termInfo = new TermInfo(qterms[i]);
@@ -147,8 +154,14 @@ public class TrecRunBaselines {
        return score * doclength; // length prior
      }
 
-     private Double scoreDocumentLMs(String[] qterms, java.util.Map<String, Integer> docTF, Long doclength, Double lambda) {
-       /* Language Model, linear interpolation smoothing */
+    /**
+     * Computes score using a language model with linear interpolation smoothing and a document length prior
+     * @param qterms array of strings
+     * @param docTF document term frequencies
+     * @param doclength document length
+     * @param lambda parameter lambda (0 < lambda < 1)
+     */
+     public Double scoreDocumentLMs(String[] qterms, java.util.Map<String, Integer> docTF, Long doclength, Double lambda) {
        Double score = 0.0d;
        for (int i=0; i < qterms.length; i++) {
          TermInfo termInfo = new TermInfo(qterms[i]);
@@ -162,8 +175,15 @@ public class TrecRunBaselines {
        else return 0.0d;
      }
 
-     private Double scoreDocumentBM25(String[] qterms, java.util.Map<String, Integer> docTF, Long doclength, Double k1, Double b) {
-       /* Okapi BM25 model */
+    /**
+     * Computes score using Okapi's BM25
+     * @param qterms array of strings
+     * @param docTF document term frequencies
+     * @param doclength document length
+     * @param k1 parameter k1 (k1 > 0)
+     * @param b parameter b (0 < b < 1)
+     */
+     public Double scoreDocumentBM25(String[] qterms, java.util.Map<String, Integer> docTF, Long doclength, Double k1, Double b) {
        Double score = 0.0d;
        for (int i=0; i < qterms.length; i++) {
          TermInfo termInfo = new TermInfo(qterms[i]);
@@ -176,7 +196,14 @@ public class TrecRunBaselines {
        return score;
      }
 
-     private Double scoreDocumentLMdi(String[] qterms, java.util.Map<String, Integer> docTF, Long doclength, Double mu) {
+    /**
+     * Computes score using a language model with Dirichlet smoothing
+     * @param qterms array of strings
+     * @param docTF document term frequencies
+     * @param doclength document length
+     * @param mu smoothing parameter mu (mu > 0)
+     */
+     public Double scoreDocumentLMdi(String[] qterms, java.util.Map<String, Integer> docTF, Long doclength, Double mu) {
        /* Language model with Dirichlet smoothing */
        Double score = 0.0d;
        for (int i=0; i < qterms.length; i++) {
@@ -188,8 +215,14 @@ public class TrecRunBaselines {
        if (score > 0) return score; else return 0.0d; // a matching document might get score smaller than zero in theory
      }
 
-     /*************************** ALL RETRIEVAL MODELS GO ABOVE ***************************/
+     // ALL RETRIEVAL MODELS GO ABOVE 
 
+
+     /**
+      * @param key TREC-ID
+      * @param value document text
+      * @param output (Query-ID ":" Model, TREC-ID, score)
+      */
      public void map(Text key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
 
        // Store tf's of document only for term that is in one of the queries
@@ -234,10 +267,18 @@ public class TrecRunBaselines {
      }
    }
 
+  /**
+   * -- Reducer: Sorts the retrieved documents and takes the top 1000.
+   */
    public static class Reduce extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
 
      private static final Integer TOP = 1000;
 
+     /**
+      * @param key Query-ID ":" Model
+      * @param values (TREC-ID, score)
+      * @param output (Query-ID ":" Model, TREC-ID, score)
+      */
      public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, Text> output, final Reporter reporter) throws IOException {
 
        String[] RankedQuerId = new String[TOP], RankedResult = new String[TOP];
@@ -270,6 +311,12 @@ public class TrecRunBaselines {
    }
 
 
+  /**
+   * Runs the MapReduce job "trec baseline runs"
+   * @param args 0: path to parsed document collection (use AnchorExtract); 1: (non-existing) path that will contain run resutls; 2: MIREX query file
+   * @usage. 
+   * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRunBaselines /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/BaselineOut /user/hadoop/wt09-topics-stats.txt </code> 
+   */
    public static void main(String[] args) throws Exception {
      // Set job configuration
      JobConf conf = new JobConf(TrecRun.class);

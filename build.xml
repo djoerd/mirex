@@ -9,6 +9,7 @@
   <property name="dir.src" value="src"/>
   <property name="dir.dist" value="dist"/>
   <property name="dir.lib" value="lib"/>
+  <property name="dir.doc" value="doc"/>
   <property name="jarfile" value="mirex-${version}.jar"/>
 
   <!-- classpath -->
@@ -17,7 +18,6 @@
     <pathelement location="${hadoop}"/>
   </path>
 
-  <!--  sources targets -->
   <target name="build" description="compilation of source files">
     <mkdir dir="${dir.dist}"/>
     <javac srcdir="${dir.src}" destdir="${dir.dist}" listfiles="on" source="1.6" target="1.6">
@@ -25,15 +25,21 @@
     </javac>
   </target>
 
-  <!--  creates jar library -->
   <target name="jar" depends="build" description="creates jar library">
     <jar destfile="${jarfile}" basedir="${dir.dist}"/>
   </target>
 
-  <!--  delete distribution folders -->
-  <target name="clean" description="cleans distribution">
+  <target name="doc" depends="build" description="creates documentation">
+    <javadoc sourcepath="${dir.src}" destdir="${dir.doc}" packagenames="nl.utwente.mirex.*" overview="README.html" windowtitle="MIREX ${version} Documentation" nodeprecatedlist="yes" notree="yes" noindex="yes">
+      <tag name="usage." scope="all" description="Example usage:" /> 
+      <classpath refid="classpath.compile"/>
+    </javadoc>
+  </target>
+
+  <target name="clean" description="deletes distribution jar and folders">
     <delete file="${jarfile}"/>
     <delete dir="${dir.dist}"/>
+    <delete dir="${dir.doc}"/>
   </target>
 
 </project>

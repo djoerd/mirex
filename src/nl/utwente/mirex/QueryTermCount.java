@@ -1,5 +1,4 @@
 /*
- *
  * Copyright Notice:
  * -----------------
  *
@@ -19,21 +18,6 @@
  * Portions created by the "University of Twente" are
  * Copyright (C) 2010 "University of Twente".
  * All Rights Reserved.
- * 
- * Author(s): Djoerd Hiemstra 
- * 
- * About:
- * ------
- * 
- * Do a simple TREC run.
- *  Input: (argument 1) Document representation (WARC-TREC-ID, text), 
- *         tab separated
- *         (argument 2) TREC ClueWeb queries (TREC-QUERY-ID, Query terms), 
- *         separated by a colon (":")
- *  Output: (argument 3) TREC ClueWeb queries (TREC-QUERY-ID, Query terms),
- *         separated by a colon (":"), augmented with global statistics
- * 
- * Djoerd Hiemstra, April 2010
  */
 
 package nl.utwente.mirex;
@@ -67,6 +51,21 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 
+
+/**
+ * <b>Runs MapReduce job:</b> Gets global statistics for query file.
+ * Very similar to the famous "word count" job.
+ *  Inputs: (argument 1) Document representation (WARC-TREC-ID, text), 
+ *         tab separated
+ *         (argument 2) TREC ClueWeb queries (TREC-QUERY-ID, Query terms), 
+ *         separated by a colon (":")
+ *  Output: (argument 3) TREC ClueWeb queries (TREC-QUERY-ID, Query terms),
+ *         separated by a colon (":"), augmented with global statistics
+ * 
+ * @author Djoerd Hiemstra
+ * @since 0.2
+ * @see AnchorExtract
+ */
 public class QueryTermCount {
 
    private static final String SysName = "MIREX";
@@ -77,7 +76,10 @@ public class QueryTermCount {
    private static final String tempName = SysName + "-tmp";
    private static final String TOKENIZER = "[^0-9A-Za-z]+";
 
-   public static class Map extends MapReduceBase implements Mapper<Text, Text, Text, LongWritable> {
+  /**
+  * -- Mapper: Collects local statistics for one document. 
+  */
+  public static class Map extends MapReduceBase implements Mapper<Text, Text, Text, LongWritable> {
 
      private static final LongWritable one = new LongWritable(1);  
 
@@ -115,6 +117,11 @@ public class QueryTermCount {
        }
      }
 
+     /**
+      * @param key TREC-ID
+      * @param value document text
+      * @param output (Query-term <i>or</i> intermediate statistic, Count)
+      */
      public void map(Text key, Text value, OutputCollector<Text, LongWritable> output, Reporter reporter) throws IOException {
 
        // Store tf's of document only for term that is in one of the queries
@@ -142,8 +149,16 @@ public class QueryTermCount {
      }
    }
 
-   public static class Reduce extends MapReduceBase implements Reducer<Text, LongWritable, Text, LongWritable> {
+  /**
+  * -- Reducer: Sums all statistics. 
+  */
+  public static class Reduce extends MapReduceBase implements Reducer<Text, LongWritable, Text, LongWritable> {
 
+     /**
+      * @param key Query-term <i>or</i> intermediate statistic
+      * @param values Counts
+      * @param output (Query-term <i>or</i> intermediate statistic, Summed count)
+      */
      public void reduce(Text key, Iterator<LongWritable> values, OutputCollector<Text, LongWritable> output, final Reporter 
 reporter) throws IOException {
 
@@ -155,6 +170,9 @@ reporter) throws IOException {
      }
    }
 
+   /**
+   * Configure the Hadoop job
+   */
    public static JobConf configureJob (String jobName, Path inputFile, Path tempOut, Path topicFile) {
      // Set job configuration
      JobConf conf = new JobConf(TrecRun.class);
@@ -189,7 +207,13 @@ reporter) throws IOException {
      return conf ;
    } 
 
-   public static void main(String[] args) throws Exception {
+ /**
+  * Runs the MapReduce job that gets global statistics
+  * @param args 0: path to parsed document collection (use AnchorExtract); 1: TREC query file; 2: MIREX query file with global statistics
+  * @usage. 
+  * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.QueryTermCount /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/wt09-topics.txt /user/hadoop/wt09-topics-stats.txt </code> 
+  */
+  public static void main(String[] args) throws Exception {
      Path tempOut = new Path(tempName);
      Path tempIn = new Path(tempName + "/part-00000");
      Path inputFile = new Path(args[0]);

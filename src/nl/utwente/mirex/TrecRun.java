@@ -1,5 +1,4 @@
 /*
- *
  * Copyright Notice:
  * -----------------
  *
@@ -19,21 +18,6 @@
  * Portions created by the "University of Twente" are
  * Copyright (C) 2010 "University of Twente".
  * All Rights Reserved.
- * 
- * Author(s): Djoerd Hiemstra 
- *            Michael Meijer
- * 
- * About:
- * ------
- * 
- * Do a simple TREC run.
- *  Input: (argument 1) Document representation (WARC-TREC-ID, text), 
- *         tab separated
- *         (argument 3) TREC ClueWeb queries (TREC-QUERY-ID, Query terms), 
- *         separated by a colon (":")
- *  Output: (argument 2) (TREC-QUERY-ID, WARC-TREC-ID, score), tab separated 
- * 
- * Djoerd Hiemstra, February 2010
  */
 
 package nl.utwente.mirex;
@@ -62,8 +46,32 @@ import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 
+/**
+ * <b>Runs MapReduce job:</b> Runs a simple TREC experiment. 
+ * The input consists of gzipped, tab separated files containing: 
+ * <i>WARC-TREC-ID, URL, anchor text1, anchor text 2, </i>
+ * (i.e., the result of AnchorExtract.java)
+ * and a TREC query file formatted as
+ * <i> query-id ":" query text, </i>
+ * (i.e., the query file provided by NIST).
+ * This MapReduce program is described in: 
+ * <blockquote>
+ *   Djoerd Hiemstra and Claudia Hauff. 
+ *   "MIREX: MapReduce Information Retrieval Experiments" 
+ *   Technical Report TR-CTIT-10-15, Centre for Telematics 
+ *   and Information Technology, University of Twente, 
+ *   ISSN 1381-3625, 2010
+ * </blockquote>
+ * @author Djoerd Hiemstra
+ * @author Michael Meijer
+ * @since 0.1
+ * @see AnchorExtract
+ */
 public class TrecRun {
 
+   /**
+    * -- Mapper: Runs all queries on one document. 
+    */
    public static class Map extends MapReduceBase implements Mapper<Text, Text, Text, Text> {
 
      private static final String TOKENIZER = "[^0-9A-Za-z]+";
@@ -107,6 +115,11 @@ public class TrecRun {
        return score * doclength; // length prior
      }
 
+     /**
+      * @param key TREC-ID
+      * @param value document text
+      * @param output (Query-ID, TREC-ID, score)
+      */
      public void map(Text key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
 
        // Store tf's of document only for term that is in one of the queries
@@ -137,10 +150,18 @@ public class TrecRun {
      }
    }
 
+   /**
+    * -- Reducer: Sorts the retrieved documents and takes the top 1000.
+    */
    public static class Reduce extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
 
      private static final Integer TOP = 1000;
 
+     /**
+      * @param key Query-ID
+      * @param values (TREC-ID, score)
+      * @param output (Query-ID, TREC-ID, score)
+      */
      public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, Text> output, final Reporter reporter) throws IOException {
 
        String[] RankedQuerId = new String[TOP], RankedResult = new String[TOP];
@@ -173,6 +194,12 @@ public class TrecRun {
    }
 
 
+   /**
+    * Runs the MapReduce job "trec run"
+    * @param args 0: path to parsed document collection (use AnchorExtract); 1: (non-existing) path that will contain run resutls; 2: TREC query file
+    * @usage. 
+    * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRun /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/TrecOut wt09-topics.txt </code> 
+    */
    public static void main(String[] args) throws Exception {
      // Set job configuration
      JobConf conf = new JobConf(TrecRun.class);

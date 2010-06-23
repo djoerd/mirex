@@ -1,5 +1,4 @@
 /*
- *
  * Copyright Notice:
  * -----------------
  *
@@ -19,21 +18,6 @@
  * Portions created by the "University of Twente" are
  * Copyright (C) 2010 "University of Twente".
  * All Rights Reserved.
- * 
- * Author(s): Djoerd Hiemstra 
- *            Guido van der Zanden
- * 
- * About:
- * ------
- * 
- * Extract anchor text from HTML documents. 
- *  Input: ClueWeb warc files (gzipped)
- *  Output: (WARC-TREC-ID, anchor texts), tab separated (gzipped)
- * 
- * Only for documents inside the collection.
- * Documents in the collection without inlinks are not listed.
- * 
- * Djoerd Hiemstra, February 2010
  */
 
 package nl.utwente.mirex;
@@ -62,12 +46,37 @@ import edu.cmu.lemurproject.WarcRecord;
 import edu.cmu.lemurproject.WritableWarcRecord;
 import edu.cmu.lemurproject.WarcFileInputFormat;
 
+/**
+ * <b>Runs MapReduce job:</b> Extracts anchor text from HTML documents. 
+ * The input path should contain files (or should be a file) on 
+ * the Hadoop file system formatted as Web Archive (WARC) files.
+ * The output consists of gzipped, tab separated files containing: 
+ * <i>WARC-TREC-ID, URL, anchor text1, anchor text 2, </i>
+ * etc. Only finds anchors for documents inside the collection.
+ * Documents in the collection without inlinks are not listed.
+ * Anchor texts are cut after more than 10MB of anchors have been 
+ * collected for one page to keep the output manageable.
+ * This MapReduce program is described in: 
+ * <blockquote>
+ *   Djoerd Hiemstra and Claudia Hauff. 
+ *   "MIREX: MapReduce Information Retrieval Experiments" 
+ *   Technical Report TR-CTIT-10-15, Centre for Telematics 
+ *   and Information Technology, University of Twente, 
+ *   ISSN 1381-3625, 2010
+ * </blockquote>
+ * @author Djoerd Hiemstra
+ * @author Guido van der Zanden
+ * @since 0.1
+ */
 public class AnchorExtract {
 
    private final static String MirexId = "MIREX-TREC-ID: ";
    private final static Pattern mirexIdPat = Pattern.compile(MirexId + "(.+)$");
    private final static int maxCapacity = 10000000; // not much more than 10 MB anchors
 
+   /**
+    * -- Mapper: Extracts anchors. 
+    */
    public static class Map extends MapReduceBase implements Mapper<LongWritable, WritableWarcRecord, Text, Text> {
 
      private final static Pattern
@@ -94,6 +103,11 @@ public class AnchorExtract {
        return "http://" + absUrl.replaceAll("/.[^/]+/\\.\\./|//", "/").replaceFirst(noIndexHTML, "/");
      }
 
+     /**
+      * @param key any integer
+      * @param value the web page
+      * @param output (URL, anchor text <i>or</i> TREC-ID)
+      */
      public void map(LongWritable key, WritableWarcRecord value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
        String baseUri, trecId, content;
        Text link = new Text(), anchor = new Text();
@@ -119,8 +133,16 @@ public class AnchorExtract {
      }
    }
 
+   /**
+    * -- Combiner: Glues local anchor texts together.
+    */
    public static class Combine extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
 
+     /**
+      * @param key URL
+      * @param values anchor text <i>or</i> TREC-ID
+      * @param output (URL, anchor texts <i>or</i> TREC-ID)</i>
+      */
      public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
        boolean first = true;
        String trecId = "";
@@ -145,14 +167,21 @@ public class AnchorExtract {
 
    }
 
+   /**
+    * -- Reducer: Glues anchor texts together, and recovers TREC-ID.
+    */
    public static class Reduce extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
 
+     /**
+      * @param key URL
+      * @param values anchor text <i>or</i> TREC-ID
+      * @param output (TREC-ID, URL, anchor texts)</i>
+      */
      public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
 
        boolean found = false;
        String trecId = "";
-       StringBuilder anchors = new StringBuilder();
-       anchors.append(key.toString());
+       StringBuilder anchors = new StringBuilder(); anchors.append(key.toString());
       
        while (values.hasNext()) {
          String anchor = values.next().toString();
@@ -175,6 +204,12 @@ public class AnchorExtract {
    }
 
 
+   /**
+    * Runs the MapReduce job "anchor text extraction"
+    * @param args 0: path to web collection on HDFS; 1: (non-existing) path that will contain anchor texts
+    * @usage. 
+    * <code> hadoop jar mirex-0.2.jar nl.utwente.mirex.AnchorExtract /user/hadoop/ClueWeb09_English/&#x2a;/ /user/hadoop/ClueWeb09_Anchors </code> 
+    */
    public static void main(String[] args) throws Exception {
      JobConf conf = new JobConf(AnchorExtract.class);
 
