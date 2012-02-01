@@ -25,25 +25,23 @@ package nl.utwente.mirex;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Iterator;
+import java.security.InvalidParameterException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Scanner;
-import java.lang.Math;
+
+import nl.utwente.mirex.util.KeyValueInputFormat;
+import nl.utwente.mirex.util.WarcTextConverterInputFormat;
 
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.KeyValueTextInputFormat;
-import org.apache.hadoop.mapred.MapReduceBase;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.TextOutputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 
 /**
@@ -72,16 +70,16 @@ public class TrecRun {
    /**
     * -- Mapper: Runs all queries on one document. 
     */
-   public static class Map extends MapReduceBase implements Mapper<Text, Text, Text, Text> {
+	public static class Map extends Mapper<Text, Text, Text, Text> {
 
      private static final String TOKENIZER = "[^0-9A-Za-z]+";
      private java.util.Map<String, String[]> trecQueries = new HashMap<String, String[]>();
      private java.util.Map<String, Integer> queryTerms = new HashMap<String, Integer>();
 
-     public void configure(JobConf job) {
+     public void configure(Job job) {
        Path[] queryFiles;
        try {
-         queryFiles = DistributedCache.getLocalCacheFiles(job);
+         queryFiles = DistributedCache.getLocalCacheFiles(job.getConfiguration());
          parseQueryFile(queryFiles[0]);
        } catch (IOException ioe) {
          System.err.println(StringUtils.stringifyException(ioe));
@@ -120,7 +118,7 @@ public class TrecRun {
       * @param value document text
       * @param output (Query-ID, TREC-ID, score)
       */
-     public void map(Text key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+     public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
 
        // Store tf's of document only for term that is in one of the queries
        java.util.Map<String, Integer> docTF = new HashMap<String, Integer>();
@@ -138,13 +136,13 @@ public class TrecRun {
 
        // for each query, score the document
        if (doclength > 0) {
-         Iterator iterator = trecQueries.keySet().iterator();
+         Iterator<String> iterator = trecQueries.keySet().iterator();
          while (iterator.hasNext()) {
            String qid = (String) iterator.next();
            String [] qterms = (String []) trecQueries.get(qid);
            Double score = scoreDocumentLM(qterms, docTF, doclength);
            if (score != 0.0d) 
-             output.collect(new Text(qid), new Text(key.toString() + "\t" + score.toString()));
+             context.write(new Text(qid), new Text(key.toString() + "\t" + score.toString()));
          }
        }
      }
@@ -153,7 +151,7 @@ public class TrecRun {
    /**
     * -- Reducer: Sorts the retrieved documents and takes the top 1000.
     */
-   public static class Reduce extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
+	public static class Reduce extends Reducer<Text, Text, Text, Text> {
 
      private static final Integer TOP = 1000;
 
@@ -162,7 +160,7 @@ public class TrecRun {
       * @param values (TREC-ID, score)
       * @param output (Query-ID, TREC-ID, score)
       */
-     public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, Text> output, final Reporter reporter) throws IOException {
+     public void reduce(Text key, Iterator<Text> values, Context context) throws InterruptedException, IOException {
 
        String[] RankedQuerId = new String[TOP], RankedResult = new String[TOP];
        Double[] RankedScores = new Double[TOP];
@@ -188,7 +186,7 @@ public class TrecRun {
          }
        }
        for (Integer i = 0; i < newIndex; i++) {
-         output.collect(new Text(RankedQuerId[i]), new Text(RankedResult[i]));
+         context.write(new Text(RankedQuerId[i]), new Text(RankedResult[i]));
        }
      }
    }
@@ -201,37 +199,58 @@ public class TrecRun {
     * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRun /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/TrecOut wt09-topics.txt </code> 
     */
    public static void main(String[] args) throws Exception {
+	     int argc = 0;
+	     String inputFormat = "KEYVAL";
+	     if (args.length>0) {
+	    	 inputFormat = args[argc++]; 
+	     }	 
+	     if (args.length!=0  && args.length!=1) {
+	 		System.out.printf( "Usage: %s [inputFormat] inputFiles topicFile outputFile\n", TrecRun.class.getSimpleName());
+			System.out.println("          inputFormat: either WARC or KEYVAL; default WARC");			
+			System.exit(1);
+		 }
+	   
      // Set job configuration
-     JobConf conf = new JobConf(TrecRun.class);
-     conf.setJobName("MirexTrecRun");
+     Job job = new Job();
+     job.setJobName("MirexTrecRun");
+     job.setJarByClass(TrecRun.class);
 		
      // Set intermediate output (override defaults)
-     conf.setMapOutputKeyClass(Text.class);
-     conf.setMapOutputValueClass(Text.class);
+     job.setMapOutputKeyClass(Text.class);
+     job.setMapOutputValueClass(Text.class);
 
      // Set output (override defaults)
-     conf.setOutputKeyClass(Text.class);
-     conf.setOutputValueClass(Text.class);
+     job.setOutputKeyClass(Text.class);
+     job.setOutputValueClass(Text.class);
+
 
      // Set map-reduce classes
-     conf.setMapperClass(Map.class);
-     conf.setCombinerClass(Reduce.class);
-     conf.setReducerClass(Reduce.class);
+     job.setMapperClass(Map.class);
+     job.setCombinerClass(Reduce.class);
+     job.setReducerClass(Reduce.class);
 
      // Set input-output format
-     conf.setInputFormat(KeyValueTextInputFormat.class);
-     conf.setOutputFormat(TextOutputFormat.class);
-     conf.setBoolean("mapred.output.compress", false);
+     if (inputFormat.equals("KEYVAL")) {
+    	 job.setInputFormatClass(KeyValueInputFormat.class);
+     }
+     else if (inputFormat.equals("WARC")) {
+    	 job.setInputFormatClass(WarcTextConverterInputFormat.class);
+     }
+     else {
+    	 throw new InvalidParameterException("inputFormat must bei either WARC or KEYVAL");
+     }
+     job.setOutputFormatClass(TextOutputFormat.class);
+     //job.setBoolean("mapred.output.compress", false);
 		
      // Set input-output paths
-     FileInputFormat.setInputPaths(conf, new Path(args[0]));
-     FileOutputFormat.setOutputPath(conf, new Path(args[1]));
+     FileInputFormat.setInputPaths(job, new Path(args[0]));
+     FileOutputFormat.setOutputPath(job, new Path(args[1]));
 		
      // Set job specific distributed cache file (query file)
-     DistributedCache.addCacheFile(new Path(args[2]).toUri(), conf);
+     DistributedCache.addCacheFile(new Path(args[2]).toUri(), job.getConfiguration());
 	
      // Run the job
-     JobClient.runJob(conf);
+     job.waitForCompletion(true);
    }
 
 }

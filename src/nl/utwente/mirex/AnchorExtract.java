@@ -23,28 +23,22 @@
 package nl.utwente.mirex;
 
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.compress.GzipCodec;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.MapReduceBase;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.TextOutputFormat;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
+import edu.cmu.lemurproject.WarcFileInputFormat;
 import edu.cmu.lemurproject.WarcRecord;
 import edu.cmu.lemurproject.WritableWarcRecord;
-import edu.cmu.lemurproject.WarcFileInputFormat;
 
 /**
  * <b>Runs MapReduce job:</b> Extracts anchor text from HTML documents. 
@@ -77,7 +71,8 @@ public class AnchorExtract {
    /**
     * -- Mapper: Extracts anchors. 
     */
-   public static class Map extends MapReduceBase implements Mapper<LongWritable, WritableWarcRecord, Text, Text> {
+	public static class Map extends Mapper<Text, WritableWarcRecord, Text, Text> {
+   //public static class Map extends MapReduceBase implements Mapper<LongWritable, WritableWarcRecord, Text, Text> {
 
      private final static Pattern
        anchorPat = Pattern.compile("(?s)<a ([^>]*)href=[\"']?([^> '\"]+)([^>]*)>(.*?)</a>", Pattern.CASE_INSENSITIVE),
@@ -108,7 +103,8 @@ public class AnchorExtract {
       * @param value the web page
       * @param output (URL, anchor text <i>or</i> TREC-ID)
       */
-     public void map(LongWritable key, WritableWarcRecord value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+		public void map(Text key, WritableWarcRecord value, Context context)
+				throws IOException, InterruptedException {
        String baseUri, trecId, content;
        Text link = new Text(), anchor = new Text();
        Matcher matcher;
@@ -118,7 +114,7 @@ public class AnchorExtract {
          trecId = thisRecord.getHeaderMetadataItem("WARC-TREC-ID");
          link.set(baseUri);
          anchor.set(MirexId + trecId);
-         output.collect(link, anchor);           // we want to keep track of the TREC-IDs
+         context.write(link, anchor);           // we want to keep track of the TREC-IDs
          content = thisRecord.getContentUTF8();
          matcher = anchorPat.matcher(content);
          while(matcher.find()) {
@@ -126,7 +122,7 @@ public class AnchorExtract {
            if (!nomatch.find()) {
              link.set(makeAbsoluteUrl(baseUri, matcher.group(2)));
              anchor.set(matcher.group(4).replaceAll("<[^>]+>|[ \n\t\r]+", " "));
-             output.collect(link, anchor);
+             context.write(link, anchor);
            }
          }
        }
@@ -136,22 +132,24 @@ public class AnchorExtract {
    /**
     * -- Combiner: Glues local anchor texts together.
     */
-   public static class Combine extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
+	public static class Combine extends
+	Reducer<Text, Text, Text, Text> {
+   
 
      /**
       * @param key URL
       * @param values anchor text <i>or</i> TREC-ID
       * @param output (URL, anchor texts <i>or</i> TREC-ID)</i>
       */
-     public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+	public void reduce(Text key, Iterable<Text> values, Context context) throws InterruptedException, IOException {
        boolean first = true;
-       String trecId = "";
+       //String trecId = "";
        StringBuilder anchors = new StringBuilder();
-       while (values.hasNext()) {
-         String anchor = values.next().toString();
+       for (Text value: values) {
+         String anchor = value.toString();
          Matcher matcher = mirexIdPat.matcher(anchor);
          if (matcher.find()) {
-           output.collect(key, new Text(anchor));
+           context.write(key, new Text(anchor));
          }
          else {
            if (anchors.length() < maxCapacity) {
@@ -161,7 +159,7 @@ public class AnchorExtract {
          }
        }
        if (!first) {
-         output.collect(key, new Text(anchors.toString()));
+    	   context.write(key, new Text(anchors.toString()));
        }
      }
 
@@ -170,21 +168,22 @@ public class AnchorExtract {
    /**
     * -- Reducer: Glues anchor texts together, and recovers TREC-ID.
     */
-   public static class Reduce extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
+	public static class Reduce extends Reducer<Text, Text, Text, Text> {
 
      /**
       * @param key URL
       * @param values anchor text <i>or</i> TREC-ID
       * @param output (TREC-ID, URL, anchor texts)</i>
       */
-     public void reduce(Text key, Iterator<Text> values, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+	public void reduce(Text key, Iterable<Text> values,
+				Context context) throws InterruptedException, IOException {
 
        boolean found = false;
        String trecId = "";
        StringBuilder anchors = new StringBuilder(); anchors.append(key.toString());
       
-       while (values.hasNext()) {
-         String anchor = values.next().toString();
+       for (Text value: values) {
+         String anchor = value.toString();
          Matcher matcher = mirexIdPat.matcher(anchor);
          if (matcher.find()) {
            trecId = matcher.group(1);
@@ -195,7 +194,7 @@ public class AnchorExtract {
          } 
        }
        if (found && trecId != "") {
-         output.collect(new Text(trecId), new Text(anchors.toString()));
+         context.write(new Text(trecId), new Text(anchors.toString()));
          if (anchors.length() >= maxCapacity) { 
            System.err.println("Warning: Maximum capacity reached for: " + trecId);
          }
@@ -211,31 +210,32 @@ public class AnchorExtract {
     * <code> hadoop jar mirex-0.2.jar nl.utwente.mirex.AnchorExtract /user/hadoop/ClueWeb09_English/&#x2a;/ /user/hadoop/ClueWeb09_Anchors </code> 
     */
    public static void main(String[] args) throws Exception {
-     JobConf conf = new JobConf(AnchorExtract.class);
+		// Set job configuration
+	  Job job = new Job();
+	  job.setJobName("anchorextract");
+	  job.setJarByClass(AnchorExtract.class);
 
-     conf.setJobName("anchorextract");
+     
 
-     conf.setMapperClass(Map.class);
-     conf.setMapOutputKeyClass(Text.class);
-     conf.setMapOutputValueClass(Text.class);
+     job.setMapperClass(Map.class);
+     job.setMapOutputKeyClass(Text.class);
+     job.setMapOutputValueClass(Text.class);
 
-     conf.setCombinerClass(Combine.class);
+     job.setCombinerClass(Combine.class);
 
-     conf.setReducerClass(Reduce.class);
-     conf.setOutputKeyClass(Text.class);
-     conf.setOutputValueClass(Text.class);
+     job.setReducerClass(Reduce.class);
+     job.setOutputKeyClass(Text.class);
+     job.setOutputValueClass(Text.class);
 
-     conf.setInputFormat(WarcFileInputFormat.class);
-     conf.setOutputFormat(TextOutputFormat.class);
+	 job.setInputFormatClass(WarcFileInputFormat.class);
+	 job.setOutputFormatClass(TextOutputFormat.class);
 
-     FileInputFormat.setInputPaths(conf, new Path(args[0])); // '(conf, args[0])' to accept comma-separated list.
-     FileOutputFormat.setOutputPath(conf, new Path(args[1]));
-     FileOutputFormat.setCompressOutput(conf, true);
-     FileOutputFormat.setOutputCompressorClass(conf, GzipCodec.class);
+     FileInputFormat.setInputPaths(job, new Path(args[0])); // '(conf, args[0])' to accept comma-separated list.
+     FileOutputFormat.setOutputPath(job, new Path(args[1]));
+     FileOutputFormat.setCompressOutput(job, true);
+     FileOutputFormat.setOutputCompressorClass(job, GzipCodec.class);
 
-     JobClient client = new JobClient();
-     client.setConf(conf);
-     client.runJob(conf); 
+     job.waitForCompletion(true); 
    }
 }
 

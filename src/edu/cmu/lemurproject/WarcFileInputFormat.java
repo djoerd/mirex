@@ -35,31 +35,31 @@
 package edu.cmu.lemurproject;
 
 import java.io.IOException;
-import org.apache.hadoop.fs.FileSystem;
+
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.InputSplit;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.RecordReader;
-import org.apache.hadoop.mapred.Reporter;
+import org.apache.hadoop.mapreduce.InputSplit;
+import org.apache.hadoop.mapreduce.JobContext;
+import org.apache.hadoop.mapreduce.RecordReader;
+import org.apache.hadoop.mapreduce.TaskAttemptContext;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 
 public class WarcFileInputFormat extends FileInputFormat<LongWritable, WritableWarcRecord> {
 
   /**
    * Don't allow the files to be split!
    */
-  @Override
-  protected boolean isSplitable(FileSystem fs, Path filename) {
+  protected boolean isSplitable(JobContext context, Path filename) {
     // ensure the input files are not splittable!
     return false;
   }
 
-  /**
-   * Just return the record reader
-   */
-public RecordReader<LongWritable, WritableWarcRecord> getRecordReader(InputSplit split, JobConf conf, Reporter reporter) throws IOException {
-return new WarcFileRecordReader<LongWritable, WritableWarcRecord>(conf, split);
+@Override
+public RecordReader<LongWritable, WritableWarcRecord> createRecordReader(
+		InputSplit split, TaskAttemptContext context) throws IOException,
+		InterruptedException {	
+	return new WarcFileRecordReader();
 }
+
 }
 

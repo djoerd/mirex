@@ -3,8 +3,9 @@
 
   <description>MIREX: MapReduce Information Retrieval EXperiments</description>
 
-  <!-- Change the "hadoop" property below to match your Hadoop distribution -->
-  <property name="hadoop" value="/opt/hadoop-0.19.2/hadoop-0.19.2-core.jar"/>
+  <!-- Change the "hadoop" and "logging property below to match your Hadoop distribution -->
+  <property name="hadoop" value="hadoop-0.20.205.0-core.jar"/>
+  <property name="logging" value="commons-logging-1.1.1.jar"/>
   <property name="version" value="0.2"/>
   <property name="dir.src" value="src"/>
   <property name="dir.dist" value="dist"/>
@@ -13,8 +14,7 @@
   <property name="jarfile" value="mirex-${version}.jar"/>
 
   <!-- classpath -->
-  <path id="classpath.compile">
-    <pathelement location="${dir.lib}/commons-logging-1.1.1.jar"/> 
+  <path id="classpath.compile">    
     <pathelement location="${hadoop}"/>
   </path>
 

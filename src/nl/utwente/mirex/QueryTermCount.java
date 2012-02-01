@@ -25,30 +25,30 @@ package nl.utwente.mirex;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Iterator;
+import java.io.InputStreamReader;
+import java.security.InvalidParameterException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Scanner;
-import java.lang.Math;
+
+import nl.utwente.mirex.util.KeyValueInputFormat;
+import nl.utwente.mirex.util.WarcTextConverterInputFormat;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
-import org.apache.hadoop.fs.FileSystem; 
-import org.apache.hadoop.fs.FSDataOutputStream; 
-import org.apache.hadoop.fs.FSDataInputStream; 
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.LongWritable;
-import org.apache.hadoop.mapred.FileInputFormat;
-import org.apache.hadoop.mapred.FileOutputFormat;
-import org.apache.hadoop.mapred.JobClient;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.hadoop.mapred.KeyValueTextInputFormat;
-import org.apache.hadoop.mapred.MapReduceBase;
-import org.apache.hadoop.mapred.Mapper;
-import org.apache.hadoop.mapred.OutputCollector;
-import org.apache.hadoop.mapred.Reducer;
-import org.apache.hadoop.mapred.Reporter;
-import org.apache.hadoop.mapred.TextOutputFormat;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 
 
@@ -79,17 +79,17 @@ public class QueryTermCount {
   /**
   * -- Mapper: Collects local statistics for one document. 
   */
-  public static class Map extends MapReduceBase implements Mapper<Text, Text, Text, LongWritable> {
+	public static class Map extends Mapper<Text, Text, Text, LongWritable> {
 
      private static final LongWritable one = new LongWritable(1);  
 
      private java.util.Map<String, String[]> trecQueries = new HashMap<String, String[]>();
      private java.util.Map<String, Integer> queryTerms = new HashMap<String, Integer>();
 
-     public void configure(JobConf job) {
+     public void configure(Job job) {
        Path[] queryFiles;
        try {
-         queryFiles = DistributedCache.getLocalCacheFiles(job);
+         queryFiles = DistributedCache.getLocalCacheFiles(job.getConfiguration());
          parseQueryFile(queryFiles[0]);
        } catch (IOException ioe) {
          System.err.println(StringUtils.stringifyException(ioe));
@@ -122,7 +122,7 @@ public class QueryTermCount {
       * @param value document text
       * @param output (Query-term <i>or</i> intermediate statistic, Count)
       */
-     public void map(Text key, Text value, OutputCollector<Text, LongWritable> output, Reporter reporter) throws IOException {
+		public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
 
        // Store tf's of document only for term that is in one of the queries
        java.util.Map<String, Integer> docTF = new HashMap<String, Integer>();
@@ -137,14 +137,14 @@ public class QueryTermCount {
            else docTF.put(term, 1);
          }
        }
-       output.collect(new Text(CollectionLength), new LongWritable(doclength));
-       output.collect(new Text(NumberOfDocs), one);
-       Iterator iterator = docTF.keySet().iterator();
+       context.write(new Text(CollectionLength), new LongWritable(doclength));
+       context.write(new Text(NumberOfDocs), one);
+       Iterator<String> iterator = docTF.keySet().iterator();
        while (iterator.hasNext()) {
          String term = (String) iterator.next();
          Integer count = (Integer) docTF.get(term);
-         output.collect(new Text(CF + term), new LongWritable(count));
-         output.collect(new Text(DF + term), one);
+         context.write(new Text(CF + term), new LongWritable(count));
+         context.write(new Text(DF + term), one);
        }
      }
    }
@@ -152,59 +152,69 @@ public class QueryTermCount {
   /**
   * -- Reducer: Sums all statistics. 
   */
-  public static class Reduce extends MapReduceBase implements Reducer<Text, LongWritable, Text, LongWritable> {
+	public static class Reduce extends Reducer<Text, LongWritable, Text, LongWritable> {
 
      /**
       * @param key Query-term <i>or</i> intermediate statistic
       * @param values Counts
       * @param output (Query-term <i>or</i> intermediate statistic, Summed count)
       */
-     public void reduce(Text key, Iterator<LongWritable> values, OutputCollector<Text, LongWritable> output, final Reporter 
-reporter) throws IOException {
+		public void reduce(Text key, Iterable<LongWritable> values,
+				Context context) throws InterruptedException, IOException {
 
-       Long sum = 0l;
-       while (values.hasNext()) {
-         sum += values.next().get();
+       Long sum = 0l;       
+       for (LongWritable val: values) {
+         sum += val.get();
        }
-       output.collect(key, new LongWritable(sum));
+       context.write(key, new LongWritable(sum));
      }
    }
 
    /**
    * Configure the Hadoop job
+ * @throws IOException 
    */
-   public static JobConf configureJob (String jobName, Path inputFile, Path tempOut, Path topicFile) {
+   public static Job configureJob (String jobName, String format, Path inputFile, Path tempOut, Path topicFile) throws IOException, InvalidParameterException {
      // Set job configuration
-     JobConf conf = new JobConf(TrecRun.class);
-     conf.setJobName(jobName);
+     Job job = new Job();
+     job.setJobName(jobName);
 
      // Set intermediate output (override defaults)
-     conf.setMapOutputKeyClass(Text.class);
-     conf.setMapOutputValueClass(LongWritable.class);
+     job.setMapOutputKeyClass(Text.class);
+     job.setMapOutputValueClass(LongWritable.class);
 
      // Set output (override defaults)
-     conf.setOutputKeyClass(Text.class);
-     conf.setOutputValueClass(LongWritable.class);
+     job.setOutputKeyClass(Text.class);
+     job.setOutputValueClass(LongWritable.class);
 
      // Set map-reduce classes
-     conf.setMapperClass(Map.class);
-     conf.setCombinerClass(Reduce.class);
-     conf.setReducerClass(Reduce.class);
+     job.setMapperClass(Map.class);
+     job.setCombinerClass(Reduce.class);
+     job.setReducerClass(Reduce.class);
 
      // Set input-output format
-     conf.setInputFormat(KeyValueTextInputFormat.class);
-     conf.setOutputFormat(TextOutputFormat.class);
-     conf.setBoolean("mapred.output.compress", false);
-     conf.setNumReduceTasks(1);
+     if (format.equals("KEYVAL")) {
+    	 job.setInputFormatClass(KeyValueInputFormat.class);
+     }
+     else if (format.equals("WARC")) {
+    	 job.setInputFormatClass(WarcTextConverterInputFormat.class);
+     }
+     else {
+    	 throw new InvalidParameterException("inputFormat must bei either WARC or KEYVAL");
+     }
+	 job.setOutputFormatClass(TextOutputFormat.class);
+     // also works withoput
+     //conf.set("mapred.output.compress", false);
+     job.setNumReduceTasks(1);
 
      // Set input-output paths
-     FileInputFormat.setInputPaths(conf, inputFile);
-     FileOutputFormat.setOutputPath(conf, tempOut);
+     FileInputFormat.setInputPaths(job, inputFile);
+     FileOutputFormat.setOutputPath(job, tempOut);
 
      // Set job specific distributed cache file (query file)
-     DistributedCache.addCacheFile(topicFile.toUri(), conf);
+     DistributedCache.addCacheFile(topicFile.toUri(), job.getConfiguration());
 
-     return conf ;
+     return job ;
    } 
 
  /**
@@ -214,11 +224,24 @@ reporter) throws IOException {
   * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.QueryTermCount /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/wt09-topics.txt /user/hadoop/wt09-topics-stats.txt </code> 
   */
   public static void main(String[] args) throws Exception {
-     Path tempOut = new Path(tempName);
-     Path tempIn = new Path(tempName + "/part-00000");
-     Path inputFile = new Path(args[0]);
-     Path topicFile = new Path(args[1]);
-     Path topicNewFile = new Path(args[2]);
+	 if (args.length!=3  && args.length!=4) {
+		System.out.printf( "Usage: %s [inputFormat] inputFiles topicFile outputFile\n", QueryTermCount.class.getSimpleName());
+		System.out.println("          inputFormat: either WARC or KEYVAL; default WARC");
+		System.out.println("          inputFiles: path to data");
+		System.out.println("          topicFile: topic file in format queryId: term1 term2...");			
+		System.out.println("          outputFile: topic file with statistics");
+		System.exit(1);
+	 }
+	  
+     Path tempOut = new Path(tempName);   
+     int argc=0;
+     String inputFormat = "WARC";
+     if (args.length>3) {
+    	 inputFormat = args[argc++]; 
+     }
+     Path inputFile = new Path(args[argc++]);
+     Path topicFile = new Path(args[argc++]);
+     Path topicNewFile = new Path(args[argc++]);
      java.util.Map<String, Long> queryCounts = new HashMap<String, Long>();
 		
      // Stop if out file exists
@@ -230,22 +253,29 @@ reporter) throws IOException {
      hdfs.delete(tempOut, true);
 
      // Run the job
-     JobConf conf = configureJob("QueryTermCount", inputFile, tempOut, topicFile);
-     JobClient.runJob(conf);
+     Job job = configureJob("QueryTermCount", inputFormat, inputFile, tempOut, topicFile);
+     job.waitForCompletion(true);
  
-     // Get temporary file for global statistics
+     // Get created global statistics from all files which start with "part" from tempOut
      try {
-       String tempLine;
-       FSDataInputStream dis = hdfs.open(tempIn); 
-       while ((tempLine = dis.readLine()) != null) { // deprecated, but it works
-         String[] fields = tempLine.split("\t");
-         queryCounts.put(fields[0], new Long(fields[1]));
+         String tempLine;
+         FileStatus[] status = hdfs.listStatus(tempOut);       
+         for (int i=0;i<status.length;i++){
+      	   String fileName = status[i].getPath().getName();
+      	   if (!fileName.startsWith("part")) continue;      	   
+  	       FSDataInputStream dis = hdfs.open(status[i].getPath());
+  	       //BufferedReader in = new BufferedReader();
+  	       BufferedReader in= new BufferedReader(new InputStreamReader(dis));
+  	       while ((tempLine = in.readLine()) != null) { 
+  	    	 String[] fields = tempLine.split("\t");
+  	         queryCounts.put(fields[0], new Long(fields[1]));
+  	       }
+  	       dis.close();
+         }
+       } catch (IOException ioe) {
+         System.err.println(StringUtils.stringifyException(ioe));
+         System.exit(1);
        }
-       dis.close();
-     } catch (IOException ioe) {
-       System.err.println(StringUtils.stringifyException(ioe));
-       System.exit(1);
-     }
 
      // Write new topic file with global statistics
      try {
@@ -257,7 +287,8 @@ reporter) throws IOException {
        dos.writeBytes("#" + NumberOfDocs + ":" + queryCounts.get(NumberOfDocs) + "\n");
 
        FSDataInputStream dis = hdfs.open(topicFile);
-       while ((tempLine = dis.readLine()) != null) {
+       BufferedReader in= new BufferedReader(new InputStreamReader(dis));
+       while ((tempLine = in.readLine()) != null) {
          String [] fields = tempLine.split(":");
          dos.writeBytes(fields[0] + ":");
          String [] terms = fields[1].replaceAll("=", " ").split(TOKENIZER);
