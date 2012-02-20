@@ -4,10 +4,9 @@
   <description>MIREX: MapReduce Information Retrieval EXperiments</description>
 
   <!-- Change the "hadoop" and "logging property below to match your Hadoop distribution -->
-  <property name="hadoop" value="/usr/lib/hadoop"/>
-  <property name="core" value="hadoop-core.jar"/>
-  <property name="logging" value="commons-logging-1.0.4.jar"/>
-  <property name="version" value="0.3"/>
+  <property name="hadoop" value="/local/alyr/dev/hadoop-0.20.205.0/hadoop-core-0.20.205.0.jar"/>
+  <property name="logging" value="/local/alyr/dev/hadoop-0.20.205.0/share/hadoop/lib/commons-logging-1.1.1.jar" />
+  <property name="version" value="0.2"/>
   <property name="dir.src" value="src"/>
   <property name="dir.dist" value="dist"/>
   <property name="dir.doc" value="doc"/>
@@ -17,6 +16,7 @@
   <path id="classpath.compile">    
     <pathelement location="${hadoop}/${core}"/>
     <pathelement location="${hadoop}/lib/${logging}"/>
+    <pathelement location="${logging}"/>
   </path>
 
   <target name="build" description="compilation of source files">

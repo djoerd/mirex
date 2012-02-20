@@ -86,10 +86,10 @@ public class QueryTermCount {
      private java.util.Map<String, String[]> trecQueries = new HashMap<String, String[]>();
      private java.util.Map<String, Integer> queryTerms = new HashMap<String, Integer>();
 
-     public void configure(Job job) {
+     public void setup(Context context) {
        Path[] queryFiles;
        try {
-         queryFiles = DistributedCache.getLocalCacheFiles(job.getConfiguration());
+         queryFiles = DistributedCache.getLocalCacheFiles(context.getConfiguration());
          parseQueryFile(queryFiles[0]);
        } catch (IOException ioe) {
          System.err.println(StringUtils.stringifyException(ioe));
@@ -178,6 +178,7 @@ public class QueryTermCount {
      // Set job configuration
      Job job = new Job();
      job.setJobName(jobName);
+     job.setJarByClass(QueryTermCount.class);
 
      // Set intermediate output (override defaults)
      job.setMapOutputKeyClass(Text.class);
@@ -221,15 +222,15 @@ public class QueryTermCount {
   * Runs the MapReduce job that gets global statistics
   * @param args 0: path to parsed document collection (use AnchorExtract); 1: TREC query file; 2: MIREX query file with global statistics
   * @usage. 
-  * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.QueryTermCount /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/wt09-topics.txt /user/hadoop/wt09-topics-stats.txt </code> 
+  * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.QueryTermCount  WARC warc wt2010-topics.stats wt2010-topics.queries-only  </code> 
   */
   public static void main(String[] args) throws Exception {
 	 if (args.length!=3  && args.length!=4) {
 		System.out.printf( "Usage: %s [inputFormat] inputFiles topicFile outputFile\n", QueryTermCount.class.getSimpleName());
 		System.out.println("          inputFormat: either WARC or KEYVAL; default WARC");
 		System.out.println("          inputFiles: path to data");
-		System.out.println("          topicFile: topic file in format queryId: term1 term2...");			
 		System.out.println("          outputFile: topic file with statistics");
+		System.out.println("          topicFile: topic file in format queryId: term1 term2...");					
 		System.exit(1);
 	 }
 	  
@@ -240,14 +241,15 @@ public class QueryTermCount {
     	 inputFormat = args[argc++]; 
      }
      Path inputFile = new Path(args[argc++]);
+     Path outputFile = new Path(args[argc++]);
      Path topicFile = new Path(args[argc++]);
-     Path topicNewFile = new Path(args[argc++]);
+     
      java.util.Map<String, Long> queryCounts = new HashMap<String, Long>();
 		
      // Stop if out file exists
      FileSystem hdfs = FileSystem.get(new Configuration());
-     if (hdfs.exists(topicNewFile)) {
-       System.err.println("Output file " + topicNewFile + " already exists.");
+     if (hdfs.exists(outputFile)) {
+       System.err.println("Output file " + outputFile + " already exists.");
        System.exit(1); 
      }
      hdfs.delete(tempOut, true);
@@ -280,7 +282,7 @@ public class QueryTermCount {
      // Write new topic file with global statistics
      try {
        String tempLine;
-       FSDataOutputStream dos = hdfs.create(topicNewFile);
+       FSDataOutputStream dos = hdfs.create(outputFile);
        dos.writeBytes("#MIREX-COMMENT: query term weight, document frequency, collection frequency (for each term)\n"); 
        dos.writeBytes("#MIREX-COLLECTION:" + inputFile + "\n");
        dos.writeBytes("#" + CollectionLength + ":" + queryCounts.get(CollectionLength) + "\n");

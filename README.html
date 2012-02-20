@@ -22,11 +22,38 @@ work:
 <h2> Install </h2>
 
 In build.xml, change the 'value' attribute of  
-  &lt;property name="hadoop" /&gt; 
+  &lt;property name="hadoop" /&gt; and
+  &lt;property name="logging" /&gt; 
 such that it contains your Hadoop distribution, then run ant. 
 This produces the file <tt>mirex-0.2.jar</tt>. 
-The code was tested on Hadoop version 0.19.2
+The code was tested on Hadoop version 0.20
 
+<h2> Copy files</h2>
+First, the warc inputfiles must be uploaded to the HDFS:
+<pre>
+
+% src=$dir_holding_CLUEWEB_dirs_in_vfs # example: ClueWeb
+% dst=$dir_which_will_hold_CLUEWEB_dirs_in_hdfs #example: ClueWeb
+% cd $src
+% for dir in CLUEWEB09*/ClueWeb09_English_*; do echo $dir; hadoop dfs -copyFromLocal $dir $dst/$dir; done
+
+</pre>
+
+For the TREC tasks, you'll want to have the topics from the 2009 web:
+<pre>
+% wget http://trec.nist.gov/data/web/09/wt09.topics.queries-only -O
+wt09-topics.txt
+% hadoop dfs -copyFromLocal wt09.topics.txt wt09-topics.txt
+<h2> Demo Data </h2>
+
+Alternatively, we provide some demo toy data. Here is how to upload them to the hadoop file system:
+
+<pre>
+hadoop fs -mkdir anchor warc-files
+hadoop fs -put data/test.warc.gz ./warc-files/
+hadoop fs -put data/test.anchortext ./anchor/
+hadoop fs -put data/wt2010-topics.queries-only ./
+</pre>
 
 <h2> Usage </h2>
 
@@ -35,7 +62,7 @@ Run anchor text extraction as follows:
 <pre>
 
 % hadoop jar mirex-0.2.jar nl.utwente.mirex.AnchorExtract \ 
-  ClueWeb09_English/*/ ClueWeb09_Anchors
+  warc-files/* resuts
 
 </pre>
 
@@ -43,8 +70,8 @@ Then, run a TREC evaluation by:
 
 <pre>
 
-% hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRun \ 
-  ClueWeb09_Anchors/* TrecOut wt09-topics.txt
+% hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRun KEYVAL \ 
+  anchors TrecOut wt2010-topics.queries-only
 
 </pre>
 
@@ -54,7 +81,7 @@ statistics for your queries by:
 <pre>
 
 % hadoop jar mirex-0.2.jar nl.utwente.mirex.QueryTermCount \ 
-  ClueWeb09_Anchors/* wt09-topics.txt wt09-topics-stats.txt
+  WARC warc-files  wt2010-topics.queries-only  wt2010-topics.stats
 
 </pre>
 
@@ -67,7 +94,7 @@ Then, run several baseline retrieval models using:
 <pre>
 
 % hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRunBaselines \ 
-  ClueWeb09_Anchors/* BaselineOut wt09-topics-stats.txt
+  warc-files/* BaselineOut wt2010-topics.queries-only
 
 </pre>
 

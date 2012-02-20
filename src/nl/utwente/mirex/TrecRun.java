@@ -66,7 +66,7 @@ import org.apache.hadoop.util.StringUtils;
  * @see AnchorExtract
  */
 public class TrecRun {
-
+	private static org.apache.commons.logging.Log Log = org.apache.commons.logging.LogFactory.getLog("org.apache.hadoop.mapred.Task");
    /**
     * -- Mapper: Runs all queries on one document. 
     */
@@ -75,15 +75,15 @@ public class TrecRun {
      private static final String TOKENIZER = "[^0-9A-Za-z]+";
      private java.util.Map<String, String[]> trecQueries = new HashMap<String, String[]>();
      private java.util.Map<String, Integer> queryTerms = new HashMap<String, Integer>();
-
-     public void configure(Job job) {
+     
+     public void setup(Context context) {
        Path[] queryFiles;
        try {
-         queryFiles = DistributedCache.getLocalCacheFiles(job.getConfiguration());
+         queryFiles = DistributedCache.getLocalCacheFiles(context.getConfiguration());
          parseQueryFile(queryFiles[0]);
        } catch (IOException ioe) {
-         System.err.println(StringUtils.stringifyException(ioe));
-         System.exit(1);
+    	   Log.error("Error reading query file "+StringUtils.stringifyException(ioe));
+    	   System.exit(1);
        }
      }
 
@@ -101,6 +101,7 @@ public class TrecRun {
            queryTerms.put(terms[i], 1);
          }
        }
+       Log.info("Using "+trecQueries.size()+" queries");
      }
 
      private Double scoreDocumentLM(String[] qterms, java.util.Map<String, Integer> docTF, Integer doclength) {
@@ -108,7 +109,7 @@ public class TrecRun {
        for (int i=0; i < qterms.length; i++) {
          Integer tf = (Integer) docTF.get(qterms[i]);
          if (tf != null) score *= (new Double(tf) / new Double(doclength));
-         else return 0.0d;  // no match
+         //else 1;  // no match
        }
        return score * doclength; // length prior
      }
@@ -119,7 +120,6 @@ public class TrecRun {
       * @param output (Query-ID, TREC-ID, score)
       */
      public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
-
        // Store tf's of document only for term that is in one of the queries
        java.util.Map<String, Integer> docTF = new HashMap<String, Integer>();
        Integer doclength = 0; // one more, so at least 1.
@@ -141,8 +141,9 @@ public class TrecRun {
            String qid = (String) iterator.next();
            String [] qterms = (String []) trecQueries.get(qid);
            Double score = scoreDocumentLM(qterms, docTF, doclength);
-           if (score != 0.0d) 
+           if (score != 0.0d) {        	   
              context.write(new Text(qid), new Text(key.toString() + "\t" + score.toString()));
+           }
          }
        }
      }
@@ -199,17 +200,20 @@ public class TrecRun {
     * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRun /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/TrecOut wt09-topics.txt </code> 
     */
    public static void main(String[] args) throws Exception {
-	     int argc = 0;
-	     String inputFormat = "KEYVAL";
-	     if (args.length>0) {
-	    	 inputFormat = args[argc++]; 
-	     }	 
-	     if (args.length!=0  && args.length!=1) {
-	 		System.out.printf( "Usage: %s [inputFormat] inputFiles topicFile outputFile\n", TrecRun.class.getSimpleName());
+
+	     if (args.length!=3  && args.length!=4) {
+	 		System.out.printf( "Usage: %s [inputFormat] inputFiles outputFile topicFile \n", TrecRun.class.getSimpleName());
 			System.out.println("          inputFormat: either WARC or KEYVAL; default WARC");			
 			System.exit(1);
 		 }
-	   
+	     int argc = 0;
+	     String inputFormat = "WARC";
+	     if (args.length>3) {
+	    	 inputFormat = args[argc++].toUpperCase(); 
+	     }	 	   
+	     String inputFiles = args[argc++];
+	     String outputFile = args[argc++];
+	     String topicFile = args[argc++];
      // Set job configuration
      Job job = new Job();
      job.setJobName("MirexTrecRun");
@@ -243,11 +247,11 @@ public class TrecRun {
      //job.setBoolean("mapred.output.compress", false);
 		
      // Set input-output paths
-     FileInputFormat.setInputPaths(job, new Path(args[0]));
-     FileOutputFormat.setOutputPath(job, new Path(args[1]));
+     FileInputFormat.setInputPaths(job, new Path(inputFiles));
+     FileOutputFormat.setOutputPath(job, new Path(outputFile));
 		
      // Set job specific distributed cache file (query file)
-     DistributedCache.addCacheFile(new Path(args[2]).toUri(), job.getConfiguration());
+     DistributedCache.addCacheFile(new Path(topicFile).toUri(), job.getConfiguration());
 	
      // Run the job
      job.waitForCompletion(true);

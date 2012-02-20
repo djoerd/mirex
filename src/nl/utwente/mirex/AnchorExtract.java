@@ -27,6 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.compress.GzipCodec;
 import org.apache.hadoop.mapreduce.Job;
@@ -71,7 +72,7 @@ public class AnchorExtract {
    /**
     * -- Mapper: Extracts anchors. 
     */
-	public static class Map extends Mapper<Text, WritableWarcRecord, Text, Text> {
+	public static class Map extends Mapper<LongWritable, WritableWarcRecord, Text, Text> {
    //public static class Map extends MapReduceBase implements Mapper<LongWritable, WritableWarcRecord, Text, Text> {
 
      private final static Pattern
@@ -103,7 +104,7 @@ public class AnchorExtract {
       * @param value the web page
       * @param output (URL, anchor text <i>or</i> TREC-ID)
       */
-		public void map(Text key, WritableWarcRecord value, Context context)
+		public void map(LongWritable key, WritableWarcRecord value, Context context)
 				throws IOException, InterruptedException {
        String baseUri, trecId, content;
        Text link = new Text(), anchor = new Text();
@@ -212,11 +213,19 @@ public class AnchorExtract {
    public static void main(String[] args) throws Exception {
 		// Set job configuration
 	  Job job = new Job();
-	  job.setJobName("anchorextract");
+	  job.setJobName("AnchorExtraction");
 	  job.setJarByClass(AnchorExtract.class);
-
-     
-
+	 
+	  if (args.length!=2) {
+			System.out.printf( "Usage: %s inputFiles outputFile\n", AnchorExtract.class.getSimpleName());
+			System.out.println("          inputFiles: path to data");					
+			System.out.println("          outputFile: directory where anchor text is stored");
+			System.exit(1);
+	  }
+	  int argc=0;
+	  String inputFiles = args[argc++];
+	  String outputFile = args[argc++];
+	  
      job.setMapperClass(Map.class);
      job.setMapOutputKeyClass(Text.class);
      job.setMapOutputValueClass(Text.class);
@@ -229,9 +238,9 @@ public class AnchorExtract {
 
 	 job.setInputFormatClass(WarcFileInputFormat.class);
 	 job.setOutputFormatClass(TextOutputFormat.class);
-
-     FileInputFormat.setInputPaths(job, new Path(args[0])); // '(conf, args[0])' to accept comma-separated list.
-     FileOutputFormat.setOutputPath(job, new Path(args[1]));
+	 
+     FileInputFormat.setInputPaths(job, new Path(inputFiles)); // '(conf, args[0])' to accept comma-separated list.
+     FileOutputFormat.setOutputPath(job, new Path(outputFile));
      FileOutputFormat.setCompressOutput(job, true);
      FileOutputFormat.setOutputCompressorClass(job, GzipCodec.class);
 

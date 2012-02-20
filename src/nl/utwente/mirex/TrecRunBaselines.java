@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.security.InvalidParameterException;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Scanner;
 
 import nl.utwente.mirex.util.KeyValueInputFormat;
@@ -88,10 +90,10 @@ public class TrecRunBaselines {
        }
      }
 
-     public void configure(Job job) {
+     public void setup(Context context) {
        Path[] queryFiles;
        try {
-         queryFiles = DistributedCache.getLocalCacheFiles(job.getConfiguration());
+         queryFiles = DistributedCache.getLocalCacheFiles(context.getConfiguration());
          parseQueryFile(queryFiles[0]);
        } catch (IOException ioe) {
          System.err.println(StringUtils.stringifyException(ioe));
@@ -120,11 +122,14 @@ public class TrecRunBaselines {
          queryString = queryString.toLowerCase();
          String [] fields = queryString.split(":");
          String [] terms = fields[1].split(" ");
-         trecQueries.put(fields[0], terms);
+         List<String> Ts = new LinkedList<String>();
          for (int i=0; i < terms.length; i++) {
            TermInfo termInfo = new TermInfo(terms[i]);
+           if (termInfo.cf<=0) continue;
+           Ts.add(terms[i]);           
            queryTerms.put(termInfo.term, 1);
          }
+         trecQueries.put(fields[0], Ts.toArray(new String[Ts.size()]));
          queryString = fis.readLine();
        } 
      }
@@ -316,16 +321,19 @@ public class TrecRunBaselines {
    * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRunBaselines /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/BaselineOut /user/hadoop/wt09-topics-stats.txt </code> 
    */
    public static void main(String[] args) throws Exception {
-	     int argc = 0;
-	     String inputFormat = "KEYVAL";
-	     if (args.length>0) {
-	    	 inputFormat = args[argc++]; 
-	     }	 
-	     if (args.length!=0  && args.length!=1) {
+	     if (args.length!=3  && args.length!=4) {
 	 		System.out.printf( "Usage: %s [inputFormat] inputFiles topicFile outputFile\n", TrecRun.class.getSimpleName());
 			System.out.println("          inputFormat: either WARC or KEYVAL; default WARC");			
 			System.exit(1);
 		 }
+	     int argc = 0;
+	     String inputFormat = "WARC";
+	     if (args.length>3) {
+	    	 inputFormat = args[argc++].toUpperCase(); 
+	     }	 	   
+	     String inputFiles = args[argc++];
+	     String outputFile = args[argc++];
+	     String topicFile = args[argc++];
      // Set job configuration
      Job job = new Job();
      job.setJobName("MirexBaselineRuns");
@@ -358,11 +366,11 @@ public class TrecRunBaselines {
      //job.setBoolean("mapred.output.compress", false);
 		
      // Set input-output paths
-     FileInputFormat.setInputPaths(job, new Path(args[0]));
-     FileOutputFormat.setOutputPath(job, new Path(args[1]));
+     FileInputFormat.setInputPaths(job, new Path(inputFiles));
+     FileOutputFormat.setOutputPath(job, new Path(outputFile));
 		
      // Set job specific distributed cache file (query file)
-     DistributedCache.addCacheFile(new Path(args[2]).toUri(), job.getConfiguration());
+     DistributedCache.addCacheFile(new Path(topicFile).toUri(), job.getConfiguration());
 	
      // Run the job
      job.waitForCompletion(true);
