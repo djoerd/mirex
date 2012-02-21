@@ -61,7 +61,7 @@ import org.apache.hadoop.util.StringUtils;
  * @see QueryTermCount
  */
 public class TrecRunBaselines {
-
+	private static org.apache.commons.logging.Log Log = org.apache.commons.logging.LogFactory.getLog(TrecRunBaselines.class.getName());
    /**
     * -- Mapper: Runs all queries and all models on one document. 
     */
@@ -250,6 +250,8 @@ public class TrecRunBaselines {
            String qid = (String) iterator.next();
            String [] qterms = (String []) trecQueries.get(qid);
 
+           if (qterms.length==0) continue; // no query terms in the collection
+           
            if ((score = scoreDocumentLMno(qterms, docTF, doclength)) != 0.0d)
              context.write(new Text(qid + ":LMno"), new Text(key.toString() + "\t" + score.toString()));
            
