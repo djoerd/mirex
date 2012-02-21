@@ -241,8 +241,8 @@ public class QueryTermCount {
     	 inputFormat = args[argc++]; 
      }
      Path inputFile = new Path(args[argc++]);
-     Path outputFile = new Path(args[argc++]);
      Path topicFile = new Path(args[argc++]);
+     Path outputFile = new Path(args[argc++]);
      
      java.util.Map<String, Long> queryCounts = new HashMap<String, Long>();
 		
