@@ -41,28 +41,26 @@ First, the warc inputfiles must be uploaded to the HDFS:
 
 For the TREC tasks, you'll want to have the topics from the 2009 web:
 <pre>
-% wget http://trec.nist.gov/data/web/09/wt09.topics.queries-only -O
-wt09-topics.txt
-% hadoop dfs -copyFromLocal wt09.topics.txt wt09-topics.txt
-<h2> Demo Data </h2>
-
-Alternatively, we provide some demo toy data. Here is how to upload them to the hadoop file system:
-
-<pre>
-hadoop fs -mkdir anchor warc-files
-hadoop fs -put data/test.warc.gz ./warc-files/
-hadoop fs -put data/test.anchortext ./anchor/
-hadoop fs -put data/wt2010-topics.queries-only ./
+% wget http://trec.nist.gov/data/web/09/wt09.topics.queries-only
+% hadoop dfs -copyFromLocal wt09.topics.queries-only wt09.topics.queries-only
 </pre>
 
-<h2> Usage </h2>
+or for the 2010 data set:
+<pre>
 
-Run anchor text extraction as follows:
+% wget http://trec.nist.gov/data/web/10/wt2010-topics.queries-only 
+% hadoop dfs -copyFromLocal wt2010-topics.queries-only wt2010-topics.queries-only
+
+</pre>
+In the following we will use the 2010 topic set.
+
+<h2> Usage </h2>
+Run anchor text extraction as follows (this will create a directory 'results' with one line per document in 'warc-files'):
 
 <pre>
 
-% hadoop jar mirex-0.2.jar nl.utwente.mirex.AnchorExtract \ 
-  warc-files/* resuts
+% hadoop jar mirex-0.3.jar nl.utwente.mirex.AnchorExtract \ 
+  ClueWeb09_English/*/ ClueWeb09_Anchors
 
 </pre>
 
@@ -70,8 +68,8 @@ Then, run a TREC evaluation by:
 
 <pre>
 
-% hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRun KEYVAL \ 
-  anchors TrecOut wt2010-topics.queries-only
+% hadoop jar mirex-0.3.jar nl.utwente.mirex.TrecRun \ 
+  KEYVAL ClueWeb09_Anchors/* TrecOut wt2010-topics.queries-only
 
 </pre>
 
@@ -80,21 +78,21 @@ statistics for your queries by:
 
 <pre>
 
-% hadoop jar mirex-0.2.jar nl.utwente.mirex.QueryTermCount \ 
-  WARC warc-files  wt2010-topics.queries-only  wt2010-topics.stats
+% hadoop jar mirex-0.3.jar nl.utwente.mirex.QueryTermCount \ 
+  KEYVAL ClueWeb09_Anchors/*  wt2010-topics.queries-only  wt2010-topics.stats
 
 </pre>
 
-This will create a new TREC query file <tt> wt09-topics-stats.txt </tt>
+This will create a new TREC query file <tt> wt2010-topics-stats </tt>
 that includes global statistics for each query term. 
-(as follows: <tt> wt09-14:dinosaurs=1=29584=403875 </tt>)
+(as follows: <tt> wt10-14:dinosaurs=1=29584=403875 </tt>)
 
 Then, run several baseline retrieval models using:
 
 <pre>
 
-% hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRunBaselines \ 
-  warc-files/* BaselineOut wt2010-topics.queries-only
+% hadoop jar mirex-0.3.jar nl.utwente.mirex.TrecRunBaselines \ 
+  KEYVAL ClueWeb09_Anchors/* BaselineOut wt2010-topics.stats
 
 </pre>
 
@@ -120,6 +118,23 @@ need (for instance the results of BM25 weighting) as follows.
 
 % hadoop fs -cat BaselinesOut/part-* | grep ":BM25" \
   | ./trec-out.pl | sort -k 1n -k 4n >bm25.run
+
+</pre>
+
+<h2> Perform runs directly on text </h2>
+You can also create baseline runs directly on the collection text. 
+To do this, modify the commands for <tt>TrecRun, QueryTermCount, TrecRunBaselines</tt>:
+you have to exchange the format parameter <tt>KEYVAL</tt> 
+with <tt>WARC</tt> and specify the directory of the .warc.gz files 
+instead.
+
+<h2> Demo Data </h2>
+Alternatively, we provide some demo toy data. Here is how to upload them to the hadoop file system:
+<pre>
+
+hadoop fs -mkdir warc-files
+hadoop fs -put data/test.warc.gz ./warc-files/
+hadoop fs -put data/wt2010-topics.queries-only ./
 
 </pre>
 
