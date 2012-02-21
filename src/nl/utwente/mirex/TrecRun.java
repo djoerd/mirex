@@ -109,7 +109,7 @@ public class TrecRun {
        for (int i=0; i < qterms.length; i++) {
          Integer tf = (Integer) docTF.get(qterms[i]);
          if (tf != null) score *= (new Double(tf) / new Double(doclength));
-         //else 1;  // no match
+         else return 0.0d;  // no match
        }
        return score * doclength; // length prior
      }
@@ -195,25 +195,27 @@ public class TrecRun {
 
    /**
     * Runs the MapReduce job "trec run"
-    * @param args 0: path to parsed document collection (use AnchorExtract); 1: (non-existing) path that will contain run resutls; 2: TREC query file
-    * @usage. 
-    * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRun /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/TrecOut wt09-topics.txt </code> 
+    * @param args 0: path to parsed document collection (use AnchorExtract); 1: (non-existing) path that will contain run results; 2: TREC query file
+    * @usage. see README.html 
     */
    public static void main(String[] args) throws Exception {
 
-	     if (args.length!=3  && args.length!=4) {
-	 		System.out.printf( "Usage: %s [inputFormat] inputFiles outputFile topicFile \n", TrecRun.class.getSimpleName());
-			System.out.println("          inputFormat: either WARC or KEYVAL; default WARC");			
-			System.exit(1);
-		 }
-	     int argc = 0;
-	     String inputFormat = "WARC";
-	     if (args.length>3) {
-	    	 inputFormat = args[argc++].toUpperCase(); 
-	     }	 	   
-	     String inputFiles = args[argc++];
-	     String outputFile = args[argc++];
-	     String topicFile = args[argc++];
+	 if (args.length!=3  && args.length!=4) {
+		System.out.printf( "Usage: %s [inputFormat] inputFiles outputFile topicFile \n", TrecRun.class.getSimpleName());
+		System.out.println("          inputFormat: either WARC or KEYVAL; default WARC");			
+		System.out.println("          inputFiles: the WARC files");
+		System.out.println("          outputFiles: output directory");
+		System.out.println("          topicFile: topic descriptions (one query per line)");
+		System.exit(1);
+	 }
+	 int argc = 0;
+	 String inputFormat = "WARC";
+	 if (args.length>3) {
+	  	 inputFormat = args[argc++].toUpperCase(); 
+	 }	 	   
+	 String inputFiles = args[argc++];
+	 String outputFile = args[argc++];
+	 String topicFile = args[argc++];
      // Set job configuration
      Job job = new Job();
      job.setJobName("MirexTrecRun");
