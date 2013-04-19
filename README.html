@@ -1,6 +1,6 @@
 <body>
 
-<h1>MIREX 0.2</h1>
+<h1>MIREX 0.3</h1>
 
 "MIREX" stands for MapReduce Information Retrieval Experiments. 
 MIREX provides a simple and flexible solution for doing large-scale 
@@ -22,11 +22,18 @@ work:
 <h2> Install </h2>
 
 In build.xml, change the 'value' attribute of  
-  &lt;property name="hadoop" /&gt; and
-  &lt;property name="logging" /&gt; 
+
+<![CDATA[ 
+  <property name="hadoop">,
+  <property name="core-jar">, and
+  <property name="logging">
+
+]]>
+
 such that it contains your Hadoop distribution, then run ant. 
-This produces the file <tt>mirex-0.2.jar</tt>. 
-The code was tested on Hadoop version 0.20
+This produces the file <tt>mirex-0.3.jar</tt>. 
+The code was tested on Cloudera's cdh3 Hadoop distribution,
+Hadoop version 0.20.2.
 
 <h2> Copy files</h2>
 First, the warc inputfiles must be uploaded to the HDFS:
@@ -35,7 +42,8 @@ First, the warc inputfiles must be uploaded to the HDFS:
 % src=$dir_holding_CLUEWEB_dirs_in_vfs # example: ClueWeb
 % dst=$dir_which_will_hold_CLUEWEB_dirs_in_hdfs #example: ClueWeb
 % cd $src
-% for dir in CLUEWEB09*/ClueWeb09_English_*; do echo $dir; hadoop dfs -copyFromLocal $dir $dst/$dir; done
+% for dir in CLUEWEB09*/ClueWeb09_English_*; do echo $dir; \
+%   hadoop dfs -copyFromLocal $dir $dst/$dir; done
 
 </pre>
 
@@ -49,13 +57,14 @@ or for the 2010 data set:
 <pre>
 
 % wget http://trec.nist.gov/data/web/10/wt2010-topics.queries-only 
-% hadoop dfs -copyFromLocal wt2010-topics.queries-only wt2010-topics.queries-only
+% hadoop fs -put wt2010-topics.queries-only wt2010-topics.queries-only
 
 </pre>
 In the following we will use the 2010 topic set.
 
 <h2> Usage </h2>
-Run anchor text extraction as follows (this will create a directory 'results' with one line per document in 'warc-files'):
+Run anchor text extraction as follows (this will create a directory 
+'results' with one line per document in 'warc-files'):
 
 <pre>
 
@@ -79,7 +88,8 @@ statistics for your queries by:
 <pre>
 
 % hadoop jar mirex-0.3.jar nl.utwente.mirex.QueryTermCount \ 
-  KEYVAL ClueWeb09_Anchors/*  wt2010-topics.queries-only  wt2010-topics.stats
+  KEYVAL ClueWeb09_Anchors/*  wt2010-topics.queries-only  \
+  wt2010-topics.stats
 
 </pre>
 
@@ -122,14 +132,18 @@ need (for instance the results of BM25 weighting) as follows.
 </pre>
 
 <h2> Perform runs directly on text </h2>
+
 You can also create baseline runs directly on the collection text. 
-To do this, modify the commands for <tt>TrecRun, QueryTermCount, TrecRunBaselines</tt>:
-you have to exchange the format parameter <tt>KEYVAL</tt> 
-with <tt>WARC</tt> and specify the directory of the .warc.gz files 
-instead.
+To do this, modify the commands for <tt>TrecRun, QueryTermCount, 
+TrecRunBaselines</tt>: you have to exchange the format parameter 
+<tt>KEYVAL</tt> with <tt>WARC</tt> and specify the directory of 
+the .warc.gz files instead.
 
 <h2> Demo Data </h2>
-Alternatively, we provide some demo toy data. Here is how to upload them to the hadoop file system:
+
+Alternatively, we provide some demo toy data. Here is how to 
+upload them to the hadoop file system:
+
 <pre>
 
 hadoop fs -mkdir warc-files
@@ -167,7 +181,6 @@ This product includes/uses software developed by others:
 <ul>
   <li> Hadoop - Apache Software Foundation
   <li> Lemur Warc File Reader - Carnegie Mellon University
-  <li> Commons Logging - Apache Software Foundation (commons-logging-1.1.1.jar)
 </ul>
 
 
