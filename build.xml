@@ -4,8 +4,8 @@
   <description>MIREX: MapReduce Information Retrieval EXperiments</description>
 
   <!-- Change the "hadoop", core-jar and "logging" properties below to match your Hadoop distribution (default to cloudera)-->
-  <property name="hadoop" value="/usr/lib/hadoop-0.20"/>
-  <property name="core-jar" value="hadoop-core-0.20.2-cdh3u3.jar" />
+  <property name="hadoop" value="/usr/lib/hadoop"/>
+  <property name="core-jar" value="hadoop-core.jar" />
   <property name="logging" value="commons-logging-1.0.4.jar" />
   <property name="version" value="0.3"/>
   <property name="dir.src" value="src"/>
