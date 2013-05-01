@@ -36,8 +36,10 @@ Hadoop version 0.20.2.
 separate mapreduce directory, and you have to include: hadoop-common.jar
 and hadoop-annotations.jar)
 
-<h2> Copy files</h2>
-First, the warc inputfiles must be uploaded to the HDFS:
+<h2> Copy files </h2>
+
+First, the warc input files must be uploaded to the HDFS:
+
 <pre>
 
 % src=$dir_holding_CLUEWEB_dirs_in_vfs # example: ClueWeb
@@ -49,21 +51,27 @@ First, the warc inputfiles must be uploaded to the HDFS:
 </pre>
 
 For the TREC tasks, you'll want to have the topics from the 2009 web:
+
 <pre>
+
 % wget http://trec.nist.gov/data/web/09/wt09.topics.queries-only
 % hadoop dfs -copyFromLocal wt09.topics.queries-only wt09.topics.queries-only
+
 </pre>
 
 or for the 2010 data set:
+
 <pre>
 
 % wget http://trec.nist.gov/data/web/10/wt2010-topics.queries-only 
 % hadoop fs -put wt2010-topics.queries-only wt2010-topics.queries-only
 
 </pre>
+
 In the following we will use the 2010 topic set.
 
 <h2> Usage </h2>
+
 Run anchor text extraction as follows (this will create a directory 
 'results' with one line per document in 'warc-files'):
 
@@ -140,16 +148,16 @@ TrecRunBaselines</tt>: you have to exchange the format parameter
 <tt>KEYVAL</tt> with <tt>WARC</tt> and specify the directory of 
 the .warc.gz files instead.
 
-<h2> Demo Data </h2>
+<h2> Toy Data </h2>
 
-Alternatively, we provide some demo toy data. Here is how to 
-upload them to the hadoop file system:
+Alternatively, we provide some toy data. Here is how to upload 
+them to the hadoop file system:
 
 <pre>
 
-hadoop fs -mkdir warc-files
-hadoop fs -put data/test.warc.gz ./warc-files/
-hadoop fs -put data/wt2010-topics.queries-only ./
+% hadoop fs -mkdir warc-files
+% hadoop fs -put test/test.warc.gz ./warc-files/
+% hadoop fs -put test/wt2010-topics.queries-only ./
 
 </pre>
 
@@ -170,10 +178,10 @@ The Original Code is the Mirex system.
 <p>
 The Initial Developer of the Original Code is the "University of Twente".
 Portions created by the "University of Twente" are
-Copyright (C) 2010 "University of Twente".
+Copyright (C) 2010-2013 "University of Twente".
 All Rights Reserved.
 <p>
-Authors: Djoerd Hiemstra 
+Authors: Djoerd Hiemstra, 
          Robin Aly
 
 <h2> Dependencies </h2>
