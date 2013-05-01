@@ -72,15 +72,14 @@ public class AnchorExtract {
    /**
     * -- Mapper: Extracts anchors. 
     */
-	public static class Map extends Mapper<LongWritable, WritableWarcRecord, Text, Text> {
-   //public static class Map extends MapReduceBase implements Mapper<LongWritable, WritableWarcRecord, Text, Text> {
+   public static class Map extends Mapper<LongWritable, WritableWarcRecord, Text, Text> {
 
      private final static Pattern
        anchorPat = Pattern.compile("(?s)<a ([^>]*)href=[\"']?([^> '\"]+)([^>]*)>(.*?)</a>", Pattern.CASE_INSENSITIVE),
        relUrlPat = Pattern.compile("^/"),
        absUrlPat = Pattern.compile("^[a-z]+://"),
        nofollowPat = Pattern.compile("rel=[\"']?nofollow", Pattern.CASE_INSENSITIVE); // ignore links with rel="nofollow"
-     private final static String noIndexHTML = "/index\\.[a-z][a-z][a-z][a-z]?$";
+     private final static String noIndexHTML = "/$|/index\\.[a-z][a-z][a-z][a-z]?$";
 
      private static String makeAbsoluteUrl(String targetUrl, String relativeUrl) {
        /* takes url of web page (targetUrl) and relative url to make absolute url */
@@ -96,7 +95,7 @@ public class AnchorExtract {
          if (matcher.find()) absUrl = matcher.replaceAll("");
          else absUrl = targetUrl.replaceAll("/[^/]+$", "") + '/' + relativeUrl;
        }
-       return "http://" + absUrl.replaceAll("/.[^/]+/\\.\\./|//", "/").replaceFirst(noIndexHTML, "/");
+       return "http://" + absUrl.replaceAll("/.[^/]+/\\.\\./|//", "/").replaceFirst(noIndexHTML, "");
      }
 
      /**
@@ -104,14 +103,14 @@ public class AnchorExtract {
       * @param value the web page
       * @param output (URL, anchor text <i>or</i> TREC-ID)
       */
-		public void map(LongWritable key, WritableWarcRecord value, Context context)
+     public void map(LongWritable key, WritableWarcRecord value, Context context)
 				throws IOException, InterruptedException {
        String baseUri, trecId, content;
        Text link = new Text(), anchor = new Text();
        Matcher matcher;
        WarcRecord thisRecord = value.getRecord();
        if (thisRecord.getHeaderRecordType().equals("response")) {
-         baseUri = thisRecord.getHeaderMetadataItem("WARC-Target-URI").replaceFirst(noIndexHTML, "/");
+         baseUri = thisRecord.getHeaderMetadataItem("WARC-Target-URI").replaceFirst(noIndexHTML, "");
          trecId = thisRecord.getHeaderMetadataItem("WARC-TREC-ID");
          link.set(baseUri);
          anchor.set(MirexId + trecId);
@@ -133,7 +132,7 @@ public class AnchorExtract {
    /**
     * -- Combiner: Glues local anchor texts together.
     */
-	public static class Combine extends
+   public static class Combine extends
 	Reducer<Text, Text, Text, Text> {
    
 
@@ -142,7 +141,7 @@ public class AnchorExtract {
       * @param values anchor text <i>or</i> TREC-ID
       * @param output (URL, anchor texts <i>or</i> TREC-ID)</i>
       */
-	public void reduce(Text key, Iterable<Text> values, Context context) throws InterruptedException, IOException {
+     public void reduce(Text key, Iterable<Text> values, Context context) throws InterruptedException, IOException {
        boolean first = true;
        //String trecId = "";
        StringBuilder anchors = new StringBuilder();
@@ -169,14 +168,14 @@ public class AnchorExtract {
    /**
     * -- Reducer: Glues anchor texts together, and recovers TREC-ID.
     */
-	public static class Reduce extends Reducer<Text, Text, Text, Text> {
+   public static class Reduce extends Reducer<Text, Text, Text, Text> {
 
      /**
       * @param key URL
       * @param values anchor text <i>or</i> TREC-ID
       * @param output (TREC-ID, URL, anchor texts)</i>
       */
-	public void reduce(Text key, Iterable<Text> values,
+     public void reduce(Text key, Iterable<Text> values,
 				Context context) throws InterruptedException, IOException {
 
        boolean found = false;
@@ -211,20 +210,20 @@ public class AnchorExtract {
     * <code> hadoop jar mirex-0.2.jar nl.utwente.mirex.AnchorExtract /user/hadoop/ClueWeb09_English/&#x2a;/ /user/hadoop/ClueWeb09_Anchors </code> 
     */
    public static void main(String[] args) throws Exception {
-		// Set job configuration
-	  Job job = new Job();
-	  job.setJobName("AnchorExtraction");
-	  job.setJarByClass(AnchorExtract.class);
+     // Set job configuration
+     Job job = new Job();
+     job.setJobName("AnchorExtraction");
+     job.setJarByClass(AnchorExtract.class);
 	 
-	  if (args.length!=2) {
-			System.out.printf( "Usage: %s inputFiles outputFile\n", AnchorExtract.class.getSimpleName());
-			System.out.println("          inputFiles: path to data");					
-			System.out.println("          outputFile: directory where anchor text is stored");
-			System.exit(1);
-	  }
-	  int argc=0;
-	  String inputFiles = args[argc++];
-	  String outputFile = args[argc++];
+     if (args.length!=2) {
+        System.out.printf( "Usage: %s inputFiles outputFile\n", AnchorExtract.class.getSimpleName());
+        System.out.println("          inputFiles: path to data");					
+        System.out.println("          outputFile: directory where anchor text is stored");
+        System.exit(1);
+     }
+     int argc=0;
+     String inputFiles = args[argc++];
+     String outputFile = args[argc++];
 	  
      job.setMapperClass(Map.class);
      job.setMapOutputKeyClass(Text.class);
@@ -236,8 +235,8 @@ public class AnchorExtract {
      job.setOutputKeyClass(Text.class);
      job.setOutputValueClass(Text.class);
 
-	 job.setInputFormatClass(WarcFileInputFormat.class);
-	 job.setOutputFormatClass(TextOutputFormat.class);
+     job.setInputFormatClass(WarcFileInputFormat.class);
+     job.setOutputFormatClass(TextOutputFormat.class);
 	 
      FileInputFormat.setInputPaths(job, new Path(inputFiles)); // '(conf, args[0])' to accept comma-separated list.
      FileOutputFormat.setOutputPath(job, new Path(outputFile));
