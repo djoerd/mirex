@@ -30,9 +30,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Scanner;
 
-import nl.utwente.mirex.util.KeyValueInputFormat;
-import nl.utwente.mirex.util.WarcTextConverterInputFormat;
-
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
@@ -40,9 +37,12 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
+
+import nl.utwente.mirex.util.WarcTextConverterInputFormat;
 
 /**
  * <b>Runs MapReduce job:</b> Runs a simple TREC experiment. 
@@ -216,6 +216,7 @@ public class TrecRun {
 	 String inputFiles = args[argc++];
 	 String outputFile = args[argc++];
 	 String topicFile = args[argc++];
+   
      // Set job configuration
      Job job = new Job();
      job.setJobName("MirexTrecRun");
@@ -237,13 +238,13 @@ public class TrecRun {
 
      // Set input-output format
      if (inputFormat.equals("KEYVAL")) {
-    	 job.setInputFormatClass(KeyValueInputFormat.class);
+    	 job.setInputFormatClass(KeyValueTextInputFormat.class);
      }
      else if (inputFormat.equals("WARC")) {
     	 job.setInputFormatClass(WarcTextConverterInputFormat.class);
      }
      else {
-    	 throw new InvalidParameterException("inputFormat must bei either WARC or KEYVAL");
+    	 throw new InvalidParameterException("inputFormat must be either WARC or KEYVAL");
      }
      job.setOutputFormatClass(TextOutputFormat.class);
      //job.setBoolean("mapred.output.compress", false);

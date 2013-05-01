@@ -32,9 +32,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Scanner;
 
-import nl.utwente.mirex.util.KeyValueInputFormat;
-import nl.utwente.mirex.util.WarcTextConverterInputFormat;
-
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
@@ -42,9 +39,12 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
+
+import nl.utwente.mirex.util.WarcTextConverterInputFormat;
 
 /**
  * <b>Runs MapReduce job:</b> Runs several baseline experiments. 
@@ -356,7 +356,7 @@ public class TrecRunBaselines {
 
      // Set input-output format
      if (inputFormat.equals("KEYVAL")) {
-    	 job.setInputFormatClass(KeyValueInputFormat.class);
+    	 job.setInputFormatClass(KeyValueTextInputFormat.class);
      }
      else if (inputFormat.equals("WARC")) {
     	 job.setInputFormatClass(WarcTextConverterInputFormat.class);

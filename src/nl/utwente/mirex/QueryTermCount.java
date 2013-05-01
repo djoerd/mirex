@@ -31,7 +31,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Scanner;
 
-import nl.utwente.mirex.util.KeyValueInputFormat;
 import nl.utwente.mirex.util.WarcTextConverterInputFormat;
 
 import org.apache.hadoop.conf.Configuration;
@@ -47,10 +46,12 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.KeyValueTextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 
+import nl.utwente.mirex.util.WarcTextConverterInputFormat;
 
 /**
  * <b>Runs MapReduce job:</b> Gets global statistics for query file.
@@ -195,7 +196,7 @@ public class QueryTermCount {
 
      // Set input-output format
      if (format.equals("KEYVAL")) {
-    	 job.setInputFormatClass(KeyValueInputFormat.class);
+    	 job.setInputFormatClass(KeyValueTextInputFormat.class);
      }
      else if (format.equals("WARC")) {
     	 job.setInputFormatClass(WarcTextConverterInputFormat.class);
