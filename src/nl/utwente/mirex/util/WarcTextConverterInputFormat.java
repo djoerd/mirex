@@ -25,7 +25,7 @@ public class WarcTextConverterInputFormat extends FileInputFormat<Text, Text>{
 		scriptPat = Pattern.compile("(?s)<script(.*?)</script>", 
 			Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
 		tagsPat = Pattern.compile("<[^>]+>", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
-		spacePat = Pattern.compile("[ \n\r]+", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
+		spacePat = Pattern.compile("[ \n\r\t]+", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
 		noIndexPat = Pattern.compile("/index\\.[a-z][a-z][a-z][a-z]?$", Pattern.CASE_INSENSITIVE);
 
 	public WarcTextConverterInputFormat() {
