@@ -225,7 +225,7 @@ public class TrecRunBaselines {
      /**
       * @param key TREC-ID
       * @param value document text
-      * @param output (Query-ID ":" Model, TREC-ID, score)
+      * @param output (Query-ID + ":" + Model, TREC-ID, score)
       */
      public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
 
@@ -282,9 +282,9 @@ public class TrecRunBaselines {
      private static final Integer TOP = 1000;
 
      /**
-      * @param key Query-ID
+      * @param key Query-ID + ":" + Model
       * @param values (TREC-ID, score)
-      * @param output (Query-ID, TREC-ID, score)
+      * @param output (Query-ID + ":" + Model, TREC-ID, score)
       */
      public void reduce(Text key, Iterable<Text> values, Context context) throws InterruptedException, IOException {
 
