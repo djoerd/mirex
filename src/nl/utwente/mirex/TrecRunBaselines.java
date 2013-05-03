@@ -61,11 +61,12 @@ import nl.utwente.mirex.util.WarcTextConverterInputFormat;
  * @see QueryTermCount
  */
 public class TrecRunBaselines {
-	private static org.apache.commons.logging.Log Log = org.apache.commons.logging.LogFactory.getLog(TrecRunBaselines.class.getName());
+   private static org.apache.commons.logging.Log Log = org.apache.commons.logging.LogFactory.getLog(TrecRunBaselines.class.getName());
+
    /**
     * -- Mapper: Runs all queries and all models on one document. 
     */
-	public static class Map extends Mapper<Text, Text, Text, Text> {
+   public static class Map extends Mapper<Text, Text, Text, Text> {
 
      private static final String TOKENIZER = "[^0-9A-Za-z]+";
      private java.util.Map<String, String[]> trecQueries = new HashMap<String, String[]>();
@@ -272,27 +273,30 @@ public class TrecRunBaselines {
      }
    }
 
-  /**
-   * -- Reducer: Sorts the retrieved documents and takes the top 1000.
-   */
-	public static class Reduce extends Reducer<Text, Text, Text, Text> {
+
+   /**
+    * -- Reducer: Sorts the retrieved documents and takes the top 1000.
+    */
+   public static class Reduce extends Reducer<Text, Text, Text, Text> {
 
      private static final Integer TOP = 1000;
 
      /**
-      * @param key Query-ID ":" Model
+      * @param key Query-ID
       * @param values (TREC-ID, score)
-      * @param output (Query-ID ":" Model, TREC-ID, score)
+      * @param output (Query-ID, TREC-ID, score)
       */
      public void reduce(Text key, Iterable<Text> values, Context context) throws InterruptedException, IOException {
 
-       String[] RankedQuerId = new String[TOP], RankedResult = new String[TOP];
+       String[] RankedQuerId = new String[TOP];
+       String[] RankedResult = new String[TOP];
        Double[] RankedScores = new Double[TOP];
        Integer newIndex = 0;
        Double lastScore = 0.0d; // does not matter what...
-       for (Text val: values) {
-         String value = val.toString();
-         String[] fields = value.split("\t");
+
+       for (Text value : values) {
+         String stringValue = value.toString();
+         String[] fields = stringValue.split("\t");
          Double score = new Double(fields[1]);
          if (newIndex < TOP || score > lastScore) {
            if (newIndex < TOP) newIndex++;
@@ -305,14 +309,14 @@ public class TrecRunBaselines {
            }
            RankedScores[index] = score;
            RankedQuerId[index] = key.toString();
-           RankedResult[index] = value;
+           RankedResult[index] = stringValue;
            lastScore = RankedScores[newIndex-1];
          }
        }
        for (Integer i = 0; i < newIndex; i++) {
          context.write(new Text(RankedQuerId[i]), new Text(RankedResult[i]));
        }
-     }
+     } 
    }
 
 
@@ -323,19 +327,21 @@ public class TrecRunBaselines {
    * <code> % hadoop jar mirex-0.2.jar nl.utwente.mirex.TrecRunBaselines /user/hadoop/ClueWeb09_Anchors/* /user/hadoop/BaselineOut /user/hadoop/wt09-topics-stats.txt </code> 
    */
    public static void main(String[] args) throws Exception {
-	     if (args.length!=3  && args.length!=4) {
-	 		System.out.printf( "Usage: %s [inputFormat] inputFiles topicFile outputFile\n", TrecRun.class.getSimpleName());
-			System.out.println("          inputFormat: either WARC or KEYVAL; default WARC");			
-			System.exit(1);
-		 }
-	     int argc = 0;
-	     String inputFormat = "WARC";
-	     if (args.length>3) {
-	    	 inputFormat = args[argc++].toUpperCase(); 
-	     }	 	   
-	     String inputFiles = args[argc++];
-	     String outputFile = args[argc++];
-	     String topicFile = args[argc++];
+     if (args.length!=3  && args.length!=4) {
+       System.out.printf( "Usage: %s [inputFormat] inputFiles topicFile outputFile\n", TrecRun.class.getSimpleName());
+       System.out.println("          inputFormat: either WARC or KEYVAL; default WARC");			
+       System.exit(1);
+     }
+
+     int argc = 0;
+     String inputFormat = "WARC";
+     if (args.length>3) {
+       inputFormat = args[argc++].toUpperCase(); 
+     }	 	   
+     String inputFiles = args[argc++];
+     String outputFile = args[argc++];
+     String topicFile = args[argc++];
+
      // Set job configuration
      Job job = new Job();
      job.setJobName("MirexBaselineRuns");
@@ -356,16 +362,15 @@ public class TrecRunBaselines {
 
      // Set input-output format
      if (inputFormat.equals("KEYVAL")) {
-    	 job.setInputFormatClass(KeyValueTextInputFormat.class);
+       job.setInputFormatClass(KeyValueTextInputFormat.class);
      }
      else if (inputFormat.equals("WARC")) {
-    	 job.setInputFormatClass(WarcTextConverterInputFormat.class);
+       job.setInputFormatClass(WarcTextConverterInputFormat.class);
      }
      else {
-    	 throw new InvalidParameterException("inputFormat must bei either WARC or KEYVAL");
+       throw new InvalidParameterException("inputFormat must bei either WARC or KEYVAL");
      }
      job.setOutputFormatClass(TextOutputFormat.class);
-     //job.setBoolean("mapred.output.compress", false);
 		
      // Set input-output paths
      FileInputFormat.setInputPaths(job, new Path(inputFiles));

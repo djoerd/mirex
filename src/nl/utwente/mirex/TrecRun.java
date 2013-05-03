@@ -70,7 +70,7 @@ public class TrecRun {
    /**
     * -- Mapper: Runs all queries on one document. 
     */
-	public static class Map extends Mapper<Text, Text, Text, Text> {
+   public static class Map extends Mapper<Text, Text, Text, Text> {
 
      private static final String TOKENIZER = "[^0-9A-Za-z]+";
      private java.util.Map<String, String[]> trecQueries = new HashMap<String, String[]>();
@@ -152,7 +152,7 @@ public class TrecRun {
    /**
     * -- Reducer: Sorts the retrieved documents and takes the top 1000.
     */
-	public static class Reduce extends Reducer<Text, Text, Text, Text> {
+   public static class Reduce extends Reducer<Text, Text, Text, Text> {
 
      private static final Integer TOP = 1000;
 
@@ -161,15 +161,17 @@ public class TrecRun {
       * @param values (TREC-ID, score)
       * @param output (Query-ID, TREC-ID, score)
       */
-     public void reduce(Text key, Iterator<Text> values, Context context) throws InterruptedException, IOException {
+     public void reduce(Text key, Iterable<Text> values, Context context) throws InterruptedException, IOException {
 
-       String[] RankedQuerId = new String[TOP], RankedResult = new String[TOP];
+       String[] RankedQuerId = new String[TOP];
+       String[] RankedResult = new String[TOP];
        Double[] RankedScores = new Double[TOP];
        Integer newIndex = 0;
        Double lastScore = 0.0d; // does not matter what...
-       while(values.hasNext()) {
-         String value = values.next().toString();
-         String[] fields = value.split("\t");
+
+       for (Text value : values) {
+         String stringValue = value.toString();
+         String[] fields = stringValue.split("\t");
          Double score = new Double(fields[1]);
          if (newIndex < TOP || score > lastScore) {
            if (newIndex < TOP) newIndex++;
@@ -182,16 +184,15 @@ public class TrecRun {
            }
            RankedScores[index] = score;
            RankedQuerId[index] = key.toString();
-           RankedResult[index] = value;
+           RankedResult[index] = stringValue;
            lastScore = RankedScores[newIndex-1];
          }
        }
        for (Integer i = 0; i < newIndex; i++) {
          context.write(new Text(RankedQuerId[i]), new Text(RankedResult[i]));
        }
-     }
+     } 
    }
-
 
    /**
     * Runs the MapReduce job "trec run"
@@ -221,7 +222,7 @@ public class TrecRun {
      Job job = new Job();
      job.setJobName("MirexTrecRun");
      job.setJarByClass(TrecRun.class);
-		
+
      // Set intermediate output (override defaults)
      job.setMapOutputKeyClass(Text.class);
      job.setMapOutputValueClass(Text.class);
@@ -247,7 +248,6 @@ public class TrecRun {
     	 throw new InvalidParameterException("inputFormat must be either WARC or KEYVAL");
      }
      job.setOutputFormatClass(TextOutputFormat.class);
-     //job.setBoolean("mapred.output.compress", false);
 		
      // Set input-output paths
      FileInputFormat.setInputPaths(job, new Path(inputFiles));
