@@ -23,7 +23,7 @@ public class WarcTextConverterInputFormat extends FileInputFormat<Text, Text>{
 	private WarcFileInputFormat fileinput;
 	
 	private final static Pattern
-                headerPat = Pattern.compile("$(.*?)<",  
+                headerPat = Pattern.compile("^(.*?)<",  
 			Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
 		scriptPat = Pattern.compile("(?s)<script(.*?)</script>", 
 			Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
