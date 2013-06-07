@@ -1,37 +1,48 @@
-/**
- * Container for a generic Warc Record 
- * 
- * (C) 2009 - Carnegie Mellon University
- * 
- * 1. Redistributions of this source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer. 
- * 2. The names "Lemur", "Indri", "University of Massachusetts",  
- *    "Carnegie Mellon", and "lemurproject" must not be used to 
- *    endorse or promote products derived from this software without
- *    prior written permission. To obtain permission, contact 
- *    license@lemurproject.org.
- *
- * 4. Products derived from this software may not be called "Lemur" or "Indri"
- *    nor may "Lemur" or "Indri" appear in their names without prior written
- *    permission of The Lemur Project. To obtain permission,
- *    contact license@lemurproject.org.
- * 
- * THIS SOFTWARE IS PROVIDED BY THE LEMUR PROJECT AS PART OF THE CLUEWEB09
- * PROJECT AND OTHER CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED 
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF 
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN 
- * NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY 
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS 
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, 
- * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING 
- * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
- * POSSIBILITY OF SUCH DAMAGE. 
- * 
- * @author mhoy@cs.cmu.edu (Mark J. Hoy)
- */
+/*
+Lemur License Agreement
 
+  Copyright (c) 2000-2011 The Lemur Project.  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
+
+  1. Redistributions of source code must retain the above copyright
+     notice, this list of conditions and the following disclaimer.
+
+  2. Redistributions in binary form must reproduce the above copyright
+     notice, this list of conditions and the following disclaimer in
+     the documentation and/or other materials provided with the
+     distribution.
+
+  3. The names "Lemur", "Indri", "University of Massachusetts" and
+     "Carnegie Mellon" must not be used to endorse or promote products
+     derived from this software without prior written permission. To
+     obtain permission, contact license@lemurproject.org
+
+  4. Products derived from this software may not be called "Lemur" or "Indri"
+     nor may "Lemur" or "Indri" appear in their names without prior written
+     permission of The Lemur Project. To obtain permission,
+     contact license@lemurproject.org.
+
+  THIS SOFTWARE IS PROVIDED BY THE LEMUR PROJECT AND OTHER
+  CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING,
+  BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+  FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+  COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+  OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR
+  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
+  DAMAGE.
+
+ */
+/*
+ * To change this template, choose Tools | Templates
+ * and open the template in the editor.
+ */
 package edu.cmu.lemurproject;
 
 import java.io.DataInput;
@@ -44,12 +55,26 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Set;
+// import org.apache.commons.logging.Log;
+// import org.apache.commons.logging.LogFactory;
 
+/**
+ *
+ * @author mhoy
+ */
 public class WarcRecord {
 
-  public static String WARC_VERSION = "WARC/0.18";
+  // public static final Log LOG = LogFactory.getLog(WarcRecord.class);
+  
+  public static String WARC_VERSION = "WARC/";
   public static String WARC_VERSION_LINE = "WARC/0.18\n";
+
+  ////public static String WARC_VERSION = "WARC/1.0";
+  //public static String WARC_VERSION = "WARC/0.18";
+  ////public static String WARC_VERSION_LINE = "WARC/1.0\n";
+  //public static String WARC_VERSION_LINE = "WARC/0.18\n";
   private static String NEWLINE="\n";
+  private static String CR_NEWLINE="\r\n";
   
   private static byte MASK_THREE_BYTE_CHAR=(byte)(0xE0);
   private static byte MASK_TWO_BYTE_CHAR=(byte)(0xC0);
@@ -58,25 +83,19 @@ public class WarcRecord {
   private static byte MASK_BOTTOM_FIVE_BITS=(byte)(0x3F);
   private static byte MASK_BOTTOM_FOUR_BITS=(byte)(0x0F);
   
-  /**
-   * Our read line implementation. We cannot allow buffering here (for gzip streams)
-   * so, we need to use DataInputStream. Also - we need to account for java's
-   * UTF8 implementation
-   * @param in the input data stream
-   * @return the read line (or null if eof)
-   * @throws java.io.IOException
-   */
+  private static String LINE_ENDING="\n";
+  
   private static String readLineFromInputStream(DataInputStream in) throws IOException {
     StringBuilder retString=new StringBuilder();
-    
+    boolean found_cr = false;
     boolean keepReading=true;
     try {
       do {
         char thisChar=0;
         byte readByte=in.readByte();
-
         // check to see if it's a multibyte character
         if ((readByte & MASK_THREE_BYTE_CHAR) == MASK_THREE_BYTE_CHAR) {
+	    found_cr = false;
           // need to read the next 2 bytes
           if (in.available() < 2) {
             // treat these all as individual characters
@@ -100,6 +119,8 @@ public class WarcRecord {
           int finalVal=(thirdByte & MASK_BOTTOM_FIVE_BITS) + 64*(secondByte & MASK_BOTTOM_FIVE_BITS) + 4096*(readByte & MASK_BOTTOM_FOUR_BITS);
           thisChar=(char)finalVal;
         } else if ((readByte & MASK_TWO_BYTE_CHAR) == MASK_TWO_BYTE_CHAR) {
+	    found_cr = false;
+
           // need to read next byte
           if (in.available() < 1) {
             // treat this as individual characters
@@ -118,9 +139,18 @@ public class WarcRecord {
           // interpret it as a single byte
           thisChar=(char)readByte;
         }
-        
-        if (thisChar=='\n') {
-          keepReading=false;
+	// Look for carriage return; if found set a flag
+	if (thisChar=='\r') {
+	    found_cr = true;
+	}
+	if (thisChar=='\n') {
+	    // if the linefeed is the next character after the carriage return
+	    if (found_cr) {
+		LINE_ENDING = CR_NEWLINE;
+	    } else {
+		LINE_ENDING = NEWLINE;
+	    } 
+	    keepReading=false;
         } else {
           retString.append(thisChar);
         }
@@ -136,25 +166,12 @@ public class WarcRecord {
     return retString.toString();
   }
   
-  /**
-   * The actual heavy lifting of reading in the next WARC record
-   * 
-   * @param in the data input stream
-   * @param headerBuffer a blank string buffer to contain the WARC header
-   * @return the content byts (w/ the headerBuffer populated)
-   * @throws java.io.IOException
-   */
   private static byte[] readNextRecord(DataInputStream in, StringBuffer headerBuffer) throws IOException {
-    if (in==null) { 
-      return null;
-    }
-    if (headerBuffer==null) { 
-      return null;
-    }
+    if (in==null) { return null; }
+    if (headerBuffer==null) { return null; }
 
     String line=null;
-    boolean foundMark=false;
-    boolean inHeader=true;
+    boolean foundMark=false;    
     byte[] retContent=null;
 
     // cannot be using a buffered reader here!!!!
@@ -162,6 +179,7 @@ public class WarcRecord {
     // first - find our WARC header
     while ((!foundMark) && ((line=readLineFromInputStream(in))!=null)) {
       if (line.startsWith(WARC_VERSION)) {
+        WARC_VERSION_LINE = line;
         foundMark=true;
       }
     }
@@ -169,38 +187,55 @@ public class WarcRecord {
     // no WARC mark?
     if (!foundMark) { return null; }
     
-    // then read to the first newline
-    // make sure we get the content length here
-    int contentLength=-1;
-    boolean foundContentLength=false;
-    while (!foundContentLength && inHeader && ((line=readLineFromInputStream(in))!=null)) {
-      if ((line.trim().length()==0) && foundContentLength) {
-        inHeader=false;
-      } else {
+    // LOG.info("Found WARC_VERSION");
+
+    int contentLength = -1;
+    // read until we see contentLength then an empty line
+    // (to handle malformed ClueWeb09 headers that have blank lines)
+    // get the content length and set our retContent
+    for (line = readLineFromInputStream(in).trim(); 
+        line.length() > 0 || contentLength < 0; 
+        line = readLineFromInputStream(in).trim()) {
+      
+      if (line.length() > 0 ) {
         headerBuffer.append(line);
-        headerBuffer.append(NEWLINE);
-        String[] thisHeaderPieceParts=line.split(":", 2);
-        if (thisHeaderPieceParts.length==2) {
-          if (thisHeaderPieceParts[0].toLowerCase().startsWith("content-length")) {
-            foundContentLength=true;
-            try {
-              contentLength=Integer.parseInt(thisHeaderPieceParts[1].trim());
-            } catch (NumberFormatException nfEx) {
-              contentLength=-1;
-            }
+        headerBuffer.append(LINE_ENDING);
+        
+        // find the content length designated by Content-Length: <length>
+        String[] parts = line.split(":", 2);
+        if (parts.length == 2 && parts[0].equals("Content-Length")) {
+          try {
+            contentLength=Integer.parseInt(parts[1].trim());
+            // LOG.info("WARC record content length: " + contentLength);
+          } catch (NumberFormatException nfEx) {
+            contentLength=-1;
           }
         }
       }
-    }
-
-    if (contentLength < 0) {
-      return null;
     }
     
     // now read the bytes of the content
     retContent=new byte[contentLength];
     int totalWant=contentLength;
     int totalRead=0;
+    //
+    // LOOP TO REMOVE LEADING CR * LF 
+    // To prevent last few characters from being cut off of the content
+    // when reading
+    //
+    while ((totalRead == 0) && (totalRead < contentLength)) {
+      byte CR = in.readByte();
+      byte LF = in.readByte();
+      if ((CR != 13) && (LF != 10)) {
+        retContent[0] = CR;
+        retContent[1] = LF;
+        totalRead = 2;
+        totalWant = contentLength - totalRead;
+      }
+    }
+    //
+    //
+    //
     while (totalRead < contentLength) {
        try {
         int numRead=in.read(retContent, totalRead, totalWant);
@@ -225,22 +260,20 @@ public class WarcRecord {
     return retContent;
   }
   
-  /**
-   * Reads in a WARC record from a data input stream
-   * @param in the input stream
-   * @return a WARC record (or null if eof)
-   * @throws java.io.IOException
-   */
   public static WarcRecord readNextWarcRecord(DataInputStream in) throws IOException {
+    // LOG.info("Starting read of WARC record");
     StringBuffer recordHeader=new StringBuffer();
     byte[] recordContent=readNextRecord(in, recordHeader);
     if (recordContent==null) { 
+      // LOG.info("WARC content is null - file is complete");
       return null; 
     }
     
     // extract out our header information
     String thisHeaderString=recordHeader.toString();
-    String[] headerLines=thisHeaderString.split(NEWLINE);
+
+
+    String[] headerLines=thisHeaderString.split(LINE_ENDING);
 
     WarcRecord retRecord=new WarcRecord();
     for (int i=0; i < headerLines.length; i++) {
@@ -254,10 +287,12 @@ public class WarcRecord {
 
       // check for known keys
       if (thisKey.equals("WARC-Type")) { 
+        // LOG.info("Setting WARC record type: " + thisValue);
         retRecord.setWarcRecordType(thisValue);
       } else if (thisKey.equals("WARC-Date")) {
         retRecord.setWarcDate(thisValue);
       } else if (thisKey.equals("WARC-Record-ID")) {
+        // LOG.info("Setting WARC record ID: " + thisValue);
         retRecord.setWarcUUID(thisValue);
       } else if (thisKey.equals("Content-Type")) {
         retRecord.setWarcContentType(thisValue);
@@ -271,10 +306,7 @@ public class WarcRecord {
     
     return retRecord;
   }
-
-  /**
-   *  Warc header class
-   */
+  
   public class WarcHeader {
     public String contentType="";
     public String UUID="";
@@ -282,17 +314,10 @@ public class WarcRecord {
     public String recordType="";
     public HashMap<String, String> metadata=new HashMap<String, String>();
     public int contentLength=0;
-
-    /**
-     *  Default constructor
-     */
+    
     public WarcHeader() {
     }
     
-    /**
-     * Copy Constructor
-     * @param o other WARC header
-     */
     public WarcHeader(WarcHeader o) {
       this.contentType=o.contentType;
       this.UUID=o.UUID;
@@ -302,11 +327,6 @@ public class WarcRecord {
       this.contentLength=o.contentLength;
     }
     
-    /**
-     * Serialization output
-     * @param out the data output stream
-     * @throws java.io.IOException
-     */
     public void write(DataOutput out) throws IOException {
       out.writeUTF(contentType);
       out.writeUTF(UUID);
@@ -322,11 +342,6 @@ public class WarcRecord {
       out.writeInt(contentLength);
     }
     
-    /**
-     * Serialization input
-     * @param in the data input stream
-     * @throws java.io.IOException
-     */
     public void readFields(DataInput in) throws IOException {
       contentType=in.readUTF();
       UUID=in.readUTF();
@@ -346,24 +361,25 @@ public class WarcRecord {
     public String toString() {
       StringBuffer retBuffer=new StringBuffer();
       
-      retBuffer.append(WARC_VERSION);
-      retBuffer.append(NEWLINE);
+      retBuffer.append(WARC_VERSION_LINE);
+      retBuffer.append(LINE_ENDING);
       
-      retBuffer.append("WARC-Type: " + recordType + NEWLINE);
-      retBuffer.append("WARC-Date: " + dateString + NEWLINE);
+      retBuffer.append("WARC-Type: " + recordType + LINE_ENDING);
+      retBuffer.append("WARC-Date: " + dateString + LINE_ENDING);
       
-      retBuffer.append("WARC-Record-ID: " + UUID + NEWLINE);
       Iterator<Entry<String,String>> metadataIterator=metadata.entrySet().iterator();
       while (metadataIterator.hasNext()) {
         Entry<String,String> thisEntry=metadataIterator.next();
         retBuffer.append(thisEntry.getKey());
         retBuffer.append(": ");
         retBuffer.append(thisEntry.getValue());
-        retBuffer.append(NEWLINE);
+        retBuffer.append(LINE_ENDING);
       }
+      // Keep this as the last WARC-...
+      retBuffer.append("WARC-Record-ID: " + UUID + LINE_ENDING);
       
-      retBuffer.append("Content-Type: " + contentType + NEWLINE);
-      retBuffer.append("Content-Length: " + contentLength + NEWLINE);
+      retBuffer.append("Content-Type: " + contentType + LINE_ENDING);
+      retBuffer.append("Content-Length: " + contentLength + LINE_ENDING);
       
       return retBuffer.toString();
     }
@@ -373,93 +389,49 @@ public class WarcRecord {
   private byte[] warcContent=null;
   private String warcFilePath="";
   
-  /**
-   * Default Constructor
-   */
   public WarcRecord() {
+    
   }
   
-  /**
-   * Copy Constructor
-   * @param o
-   */
   public WarcRecord(WarcRecord o) {
     this.warcHeader=new WarcHeader(o.warcHeader);
     this.warcContent=o.warcContent;
   }
-
-  /**
-   * Retrieves the total record length (header and content)
-   * @return total record length
-   */
+  
   public int getTotalRecordLength() {
     int headerLength=warcHeader.toString().length();
     return (headerLength + warcContent.length);
   }
   
-  /**
-   * Sets the record content (copy)
-   * @param o record to copy from
-   */
   public void set(WarcRecord o) {
     this.warcHeader=new WarcHeader(o.warcHeader);
     this.warcContent=o.warcContent;
   }
   
-  /**
-   * Gets the file path from this WARC file (if set)
-   * @return
-   */
   public String getWarcFilePath() {
     return warcFilePath;
   }
   
-  /**
-   * Sets the warc file path (optional - for use with getWarcFilePath)
-   * @param path
-   */
   public void setWarcFilePath(String path) {
     warcFilePath=path;
   }
   
-  /**
-   * Sets the record type string
-   * @param recordType
-   */
   public void setWarcRecordType(String recordType) {
     warcHeader.recordType=recordType;
   }
   
-  /**
-   * Sets the content type string
-   * @param contentType
-   */
   public void setWarcContentType(String contentType) {
     warcHeader.contentType=contentType;
   }
   
-  /**
-   * Sets the WARC header date string
-   * @param dateString
-   */
   public void setWarcDate(String dateString) {
     warcHeader.dateString=dateString;
   }
   
-  /**
-   * Sets the WARC uuid string
-   * @param UUID
-   */
   public void setWarcUUID(String UUID) {
     warcHeader.UUID=UUID;
   }
   
-  /**
-   * Adds a key/value pair to a WARC header. This is needed to filter
-   * out known keys
-   * @param key
-   * @param value
-   */
   public void addHeaderMetadata(String key, String value) {
     // don't allow addition of known keys
     if (key.equals("WARC-Type")) { return; }
@@ -470,60 +442,46 @@ public class WarcRecord {
     
     warcHeader.metadata.put(key, value);
   }
+
   
-  /**
-   * Clears all metadata items from a header
-   */
   public void clearHeaderMetadata() {
     warcHeader.metadata.clear();
   }
   
-  /**
-   * Gets the set of metadata items from the header
-   * @return
-   */
   public Set<Entry<String,String>> getHeaderMetadata() {
     return warcHeader.metadata.entrySet();
   }
   
-  /**
-   * Gets a value for a specific header metadata key
-   * @param key
-   * @return
-   */
   public String getHeaderMetadataItem(String key) {
+    
+    if (key.equals("WARC-Type")) { return warcHeader.recordType; }
+    if (key.equals("WARC-Date")) { return warcHeader.dateString; }
+    if (key.equals("WARC-Record-ID")) { return warcHeader.UUID; }
+    if (key.equals("Content-Type")) { return warcHeader.contentType; }
+    if (key.equals("Content-Length")) { return Integer.toString(warcHeader.contentLength); }
+
     return warcHeader.metadata.get(key);
   }
   
-  /**
-   * Sets the byte content for this record
-   * @param content
-   */
   public void setContent(byte[] content) {
     warcContent=content;
     warcHeader.contentLength=content.length;
   }
   
-  /**
-   * Sets the byte content for this record
-   * @param content
-   */
   public void setContent(String content) {
     setContent(content.getBytes());
   }
+    public void setContentLength(int len) {
+        warcHeader.contentLength=len;
+  }
   
-  /**
-   * Restrieves the byte content for this record
-   * @return
-   */
   public byte[] getContent() {
     return warcContent;
   }
-  
-  /**
-   * Retrieves the bytes content as a UTF-8 string
-   * @return
-   */
+  public byte[] getByteContent() {
+    return warcContent;
+  }
+ 
   public String getContentUTF8() {
     String retString=null;
     try {
@@ -534,10 +492,6 @@ public class WarcRecord {
     return retString;
   }
   
-  /**
-   * Gets the header record type string
-   * @return
-   */
   public String getHeaderRecordType() {
     return warcHeader.recordType;
   }
@@ -546,34 +500,20 @@ public class WarcRecord {
   public String toString() {
     StringBuffer retBuffer=new StringBuffer();
     retBuffer.append(warcHeader.toString());
-    retBuffer.append(NEWLINE);
-    retBuffer.append(warcContent);
+    retBuffer.append(LINE_ENDING);
+    retBuffer.append(new String(warcContent));
     return retBuffer.toString();
   }
 
-  /**
-   * Gets the WARC header as a string
-   * @return
-   */
   public String getHeaderString() {
     return warcHeader.toString();
   }
 
-  /**
-   * Serialization output
-   * @param out
-   * @throws java.io.IOException
-   */
   public void write(DataOutput out) throws IOException {
     warcHeader.write(out);
     out.write(warcContent);
   }
   
-  /**
-   * Serialization input
-   * @param in
-   * @throws java.io.IOException
-   */
   public void readFields(DataInput in) throws IOException {
     warcHeader.readFields(in);
     int contentLengthBytes=warcHeader.contentLength;
