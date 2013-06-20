@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -75,7 +76,8 @@ public class AnchorExtract {
    public static class Map extends Mapper<LongWritable, WritableWarcRecord, Text, Text> {
 
      private final static Pattern
-       anchorPat = Pattern.compile("(?s)<a ([^>]*)href=[\"']?([^> '\"]+)([^>]*)>(.*?)</a>", Pattern.CASE_INSENSITIVE),
+       scriptPat = Pattern.compile("<script(.*?)</script>", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
+       anchorPat = Pattern.compile("<a ([^>]*)href=[\"']?([^> '\"]+)([^>]*)>(.*?)</a>", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE | Pattern.DOTALL),
        relUrlPat = Pattern.compile("^/"),
        absUrlPat = Pattern.compile("^[a-z]+://"),
        nofollowPat = Pattern.compile("rel=[\"']?nofollow", Pattern.CASE_INSENSITIVE); // ignore links with rel="nofollow"
@@ -116,6 +118,7 @@ public class AnchorExtract {
          anchor.set(MirexId + trecId);
          context.write(link, anchor);           // we want to keep track of the TREC-IDs
          content = thisRecord.getContentUTF8();
+         content = scriptPat.matcher(content).replaceAll(" ");
          matcher = anchorPat.matcher(content);
          while(matcher.find()) {
            Matcher nomatch = nofollowPat.matcher(matcher.group(1) + matcher.group(3));
@@ -211,10 +214,11 @@ public class AnchorExtract {
     */
    public static void main(String[] args) throws Exception {
      // Set job configuration
-     Job job = new Job();
-     job.setJobName("AnchorExtraction");
+     Configuration conf = new Configuration();
+     conf.setLong("mapred.task.timeout", 120 * 1000L); // 2 minutes timeout
+     Job job = new Job(conf, "AnchorExtract");
      job.setJarByClass(AnchorExtract.class);
-	 
+
      if (args.length!=2) {
         System.out.printf( "Usage: %s inputFiles outputFile\n", AnchorExtract.class.getSimpleName());
         System.out.println("          inputFiles: path to data");					
