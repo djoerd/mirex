@@ -68,7 +68,8 @@ public class AnchorExtract {
 
    private final static String MirexId = "MIREX-TREC-ID: ";
    private final static Pattern mirexIdPat = Pattern.compile(MirexId + "(.+)$");
-   private final static int maxCapacity = 10000000; // not much more than 10 MB anchors
+   private final static int maxCapacity = 10000000; // not more than 10 MB anchors per url gathered
+   private final static int maxHtml = 50000; // not more than 50 KB used per web page
 
    /**
     * -- Mapper: Extracts anchors. 
@@ -118,6 +119,8 @@ public class AnchorExtract {
          anchor.set(MirexId + trecId);
          context.write(link, anchor);           // we want to keep track of the TREC-IDs
          content = thisRecord.getContentUTF8();
+         if (content.length() > maxHtml)
+           content = content.substring(0, maxHtml);  // truncate websites 
          content = scriptPat.matcher(content).replaceAll(" ");
          matcher = anchorPat.matcher(content);
          while(matcher.find()) {
@@ -215,7 +218,7 @@ public class AnchorExtract {
    public static void main(String[] args) throws Exception {
      // Set job configuration
      Configuration conf = new Configuration();
-     conf.setLong("mapred.task.timeout", 120 * 1000L); // 2 minutes timeout
+     conf.setLong("mapred.task.timeout", 1800 * 1000L); // 30 minutes timeout
      Job job = new Job(conf, "AnchorExtract");
      job.setJarByClass(AnchorExtract.class);
 
