@@ -80,7 +80,7 @@ public class QueryTermCount {
   /**
   * -- Mapper: Collects local statistics for one document. 
   */
-	public static class Map extends Mapper<Text, Text, Text, LongWritable> {
+  public static class Map extends Mapper<Text, Text, Text, LongWritable> {
 
      private static final LongWritable one = new LongWritable(1);  
 
@@ -104,8 +104,7 @@ public class QueryTermCount {
          String query = null;
 
          while ((query = fis.readLine()) != null) {
-           query.toLowerCase();
-           String [] fields = query.split(":");
+           String [] fields = query.toLowerCase().split(":");
            String [] terms = fields[1].split(TOKENIZER);
            trecQueries.put(fields[0], terms);
            for (int i=0; i < terms.length; i++) {
@@ -123,7 +122,7 @@ public class QueryTermCount {
       * @param value document text
       * @param output (Query-term <i>or</i> intermediate statistic, Count)
       */
-		public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
+     public void map(Text key, Text value, Context context) throws IOException, InterruptedException {
 
        // Store tf's of document only for term that is in one of the queries
        java.util.Map<String, Integer> docTF = new HashMap<String, Integer>();
@@ -153,7 +152,7 @@ public class QueryTermCount {
   /**
   * -- Reducer: Sums all statistics. 
   */
-	public static class Reduce extends Reducer<Text, LongWritable, Text, LongWritable> {
+  public static class Reduce extends Reducer<Text, LongWritable, Text, LongWritable> {
 
      /**
       * @param key Query-term <i>or</i> intermediate statistic
@@ -292,7 +291,7 @@ public class QueryTermCount {
        FSDataInputStream dis = hdfs.open(topicFile);
        BufferedReader in= new BufferedReader(new InputStreamReader(dis));
        while ((tempLine = in.readLine()) != null) {
-         String [] fields = tempLine.split(":");
+         String [] fields = tempLine.toLowerCase().split(":");
          dos.writeBytes(fields[0] + ":");
          String [] terms = fields[1].replaceAll("=", " ").split(TOKENIZER);
          for (int i=0; i < terms.length; i++) {
