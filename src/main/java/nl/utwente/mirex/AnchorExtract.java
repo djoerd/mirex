@@ -66,7 +66,7 @@ import edu.cmu.lemurproject.WritableWarcRecord;
  */
 public class AnchorExtract {
 
-   private final static String MirexId = "MIREX-TREC-ID: ";
+   public final static String MirexId = "MIREX-TREC-ID: ";
    private final static Pattern mirexIdPat = Pattern.compile(MirexId + "(.+)$");
    private final static int maxCapacity = 10000000; // not more than 10 MB anchors per url gathered
    private final static int maxHtml = 50000; // not more than 50 KB used per web page

@@ -1,6 +1,6 @@
 <body>
 
-<h1>MIREX 0.3</h1>
+<h1>MIREX 0.4</h1>
 
 "MIREX" stands for MapReduce Information Retrieval Experiments. 
 MIREX provides a simple and flexible solution for doing large-scale 
@@ -19,22 +19,15 @@ work:
 </blockquote>
 
 
-<h2> Install </h2>
+<h2> Install using maven </h2>
 
-In build.xml, change the 'value' attribute of  
+In pom.xml, change the versions of <tt>hadoop-mapreduce-client-core</tt>
+and <tt>hadoop-common</tt> such that they match your Hadoop distribution, 
+then run <tt>mvn package</tt>. 
+This produces the file <tt>target/mirex-0.4.jar</tt>. 
+The code was tested on Cloudera's cdh5 Hadoop distribution,
+Hadoop version 2.3.
 
-  &lt;property name="hadoop"&gt;,
-  &lt;property name="core-jar"&gt;, and
-  &lt;property name="logging"&gt;
-
-such that it contains your Hadoop distribution, then run ant. 
-This produces the file <tt>mirex-0.3.jar</tt>. 
-The code was tested on Cloudera's cdh3u5 Hadoop distribution,
-Hadoop version 0.20.2.
-
-(NB For a cdh4 install, the mapreduce jars have to be included from a 
-separate mapreduce directory, and you have to include: hadoop-common.jar
-and hadoop-annotations.jar)
 
 <h2> Copy files </h2>
 
@@ -77,7 +70,7 @@ Run anchor text extraction as follows (this will create a directory
 
 <pre>
 
-% hadoop jar mirex-0.3.jar nl.utwente.mirex.AnchorExtract \ 
+% hadoop jar mirex-0.4.jar nl.utwente.mirex.AnchorExtract \ 
   ClueWeb09_English/*/ ClueWeb09_Anchors
 
 </pre>
@@ -86,7 +79,7 @@ Then, run a TREC evaluation by:
 
 <pre>
 
-% hadoop jar mirex-0.3.jar nl.utwente.mirex.TrecRun \ 
+% hadoop jar mirex-0.4.jar nl.utwente.mirex.TrecRun \ 
   KEYVAL ClueWeb09_Anchors/* TrecOut wt2010-topics.queries-only
 
 </pre>
@@ -96,7 +89,7 @@ statistics for your queries by:
 
 <pre>
 
-% hadoop jar mirex-0.3.jar nl.utwente.mirex.QueryTermCount \ 
+% hadoop jar mirex-0.4.jar nl.utwente.mirex.QueryTermCount \ 
   KEYVAL ClueWeb09_Anchors/*  wt2010-topics.queries-only  \
   wt2010-topics.stats
 
@@ -110,7 +103,7 @@ Then, run several baseline retrieval models using:
 
 <pre>
 
-% hadoop jar mirex-0.3.jar nl.utwente.mirex.TrecRunBaselines \ 
+% hadoop jar mirex-0.4.jar nl.utwente.mirex.TrecRunBaselines \ 
   KEYVAL ClueWeb09_Anchors/* BaselineOut wt2010-topics.stats
 
 </pre>
@@ -178,7 +171,7 @@ The Original Code is the Mirex system.
 <p>
 The Initial Developer of the Original Code is the "University of Twente".
 Portions created by the "University of Twente" are
-Copyright (C) 2010-2013 "University of Twente".
+Copyright (C) 2010-2014 "University of Twente".
 All Rights Reserved.
 <p>
 Authors: Djoerd Hiemstra, 

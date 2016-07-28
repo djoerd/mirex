@@ -116,6 +116,7 @@ public class TrecRunBaselines {
            globalNDocs = Long.parseLong(parts[1]);
          }
        }
+       fis.close();
        if (queryString == null) throw new IOException("Wrong format, no queries");
        if (globalNDocs == 0 || globalCollLength == 0) throw new IOException("Wrong format, use results of QueryTermCount.java");
        globalAvgDocLength = globalCollLength.doubleValue() / globalNDocs.doubleValue();
@@ -232,7 +233,8 @@ public class TrecRunBaselines {
        // Store tf's of document only for term that is in one of the queries
        java.util.Map<String, Integer> docTF = new HashMap<String, Integer>();
        Long doclength = 0l; // one more, so at least 1.
-       Scanner scan = new Scanner(value.toString().toLowerCase()).useDelimiter(TOKENIZER);
+       Scanner scanner = new Scanner(value.toString().toLowerCase());
+       Scanner scan = scanner.useDelimiter(TOKENIZER);
        while (scan.hasNext()) {
          doclength++;
          String term = scan.next();
@@ -242,7 +244,7 @@ public class TrecRunBaselines {
            else docTF.put(term, 1);
          }
        }
-
+       scanner.close();
        // for each query, score the document
        if (doclength > 0l) {
          Iterator<String> iterator = trecQueries.keySet().iterator();

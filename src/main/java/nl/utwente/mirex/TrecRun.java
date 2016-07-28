@@ -88,11 +88,13 @@ public class TrecRun {
      }
 
      private void parseQueryFile(Path queryFile) throws IOException {
-       BufferedReader fis = new BufferedReader(new FileReader(queryFile.toString()));
        String queryString = null;
-
+       BufferedReader fis = new BufferedReader(new FileReader(queryFile.toString()));
        while ((queryString = fis.readLine()) != null) {
-         if (queryString.startsWith("#MIREX")) throw new IOException("Wrong format, use original TREC topic format.");
+         if (queryString.startsWith("#MIREX")) {
+        	 fis.close();
+        	 throw new IOException("Wrong format, use original TREC topic format.");
+         }
          queryString = queryString.toLowerCase();
          String [] fields = queryString.split(":");
          String [] terms = fields[1].split(TOKENIZER);
@@ -101,6 +103,7 @@ public class TrecRun {
            queryTerms.put(terms[i], 1);
          }
        }
+       fis.close();
        Log.info("Using "+trecQueries.size()+" queries");
      }
 
@@ -123,7 +126,8 @@ public class TrecRun {
        // Store tf's of document only for term that is in one of the queries
        java.util.Map<String, Integer> docTF = new HashMap<String, Integer>();
        Integer doclength = 0; // one more, so at least 1.
-       Scanner scan = new Scanner(value.toString().toLowerCase()).useDelimiter(TOKENIZER);
+       Scanner scanner = new Scanner(value.toString().toLowerCase());
+       Scanner scan = scanner.useDelimiter(TOKENIZER);
        while (scan.hasNext()) {
          doclength++;
          String term = scan.next();
@@ -133,7 +137,7 @@ public class TrecRun {
            else docTF.put(term, 1);
          }
        }
-
+       scanner.close();
        // for each query, score the document
        if (doclength > 0) {
          Iterator<String> iterator = trecQueries.keySet().iterator();

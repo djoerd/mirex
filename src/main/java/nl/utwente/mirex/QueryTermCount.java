@@ -51,8 +51,6 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.StringUtils;
 
-import nl.utwente.mirex.util.WarcTextConverterInputFormat;
-
 /**
  * <b>Runs MapReduce job:</b> Gets global statistics for query file.
  * Very similar to the famous "word count" job.
@@ -111,6 +109,7 @@ public class QueryTermCount {
              queryTerms.put(terms[i], 1);
            }
          }
+         fis.close();
        } catch (IOException ioe) {
          System.err.println(StringUtils.stringifyException(ioe));
          System.exit(1);
@@ -127,7 +126,8 @@ public class QueryTermCount {
        // Store tf's of document only for term that is in one of the queries
        java.util.Map<String, Integer> docTF = new HashMap<String, Integer>();
        Long doclength = 0l;
-       Scanner scan = new Scanner(value.toString().toLowerCase()).useDelimiter(TOKENIZER);
+       Scanner scanner = new Scanner(value.toString().toLowerCase());
+	   Scanner scan = scanner.useDelimiter(TOKENIZER);
        while (scan.hasNext()) {
          doclength++;
          String term = scan.next();
@@ -137,6 +137,7 @@ public class QueryTermCount {
            else docTF.put(term, 1);
          }
        }
+       scanner.close();
        context.write(new Text(CollectionLength), new LongWritable(doclength));
        context.write(new Text(NumberOfDocs), one);
        Iterator<String> iterator = docTF.keySet().iterator();
@@ -204,7 +205,7 @@ public class QueryTermCount {
     	 throw new InvalidParameterException("inputFormat must bei either WARC or KEYVAL");
      }
 	 job.setOutputFormatClass(TextOutputFormat.class);
-     // also works withoput
+     // also works without
      //conf.set("mapred.output.compress", false);
      job.setNumReduceTasks(1);
 
